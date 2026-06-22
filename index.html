@@ -594,15 +594,18 @@
   }
   .cal-day{
     position: relative;
-    min-height: 64px;
+    min-height: 104px;
     border-radius: var(--radius-btn);
     border: 1px solid var(--ash);
     background: var(--canvas);
-    padding: 6px 6px 18px;
+    padding: 8px 8px 8px;
     text-align: left;
     cursor: pointer;
     font-family: var(--font-body);
     transition: background 0.15s, border-color 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
   }
   .cal-day:hover{ background: var(--shadow-tint-blue); }
   .cal-day.empty{ visibility: hidden; cursor: default; }
@@ -613,18 +616,31 @@
     font-size: 13px;
     font-weight: 700;
     color: var(--charcoal);
+    margin-bottom: 2px;
   }
-  .cal-day-dot{
-    position: absolute;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--violet);
+  .cal-day-event-preview{
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--violet);
+    background: var(--shadow-tint-blue);
+    border-radius: 5px;
+    padding: 2px 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
   }
-  .cal-day.selected .cal-day-dot{ background: #fff; }
+  .cal-day.selected .cal-day-event-preview{
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+  }
+  .cal-day-more-badge{
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--smoke);
+    padding: 1px 5px;
+  }
+  .cal-day.selected .cal-day-more-badge{ color: rgba(255,255,255,0.7); }
   .event-form{
     display:flex;
     gap: 8px;
@@ -684,7 +700,8 @@
       display:block; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700;
     }
     .alert-banner-stack{ top: 12px; right: 12px; left: 12px; width: auto; }
-    .cal-day{ min-height: 44px; padding: 4px 4px 14px; }
+    .cal-day{ min-height: 68px; padding: 5px 5px; gap: 2px; }
+    .cal-day-event-preview{ font-size: 9px; padding: 1px 4px; }
     .cal-day-num{ font-size: 11px; }
     .event-form{ flex-direction: column; }
   }
@@ -1894,15 +1911,23 @@ function renderCalendarGrid(){
   for(let i = 0; i < firstDay; i++){
     html += '<div class="cal-day empty"></div>';
   }
+  const MAX_PREVIEW = 3;
   for(let d = 1; d <= daysInMonth; d++){
     const key = dateKey(calCurrentYear, calCurrentMonth, d);
-    const hasEvents = calEventsCache[key] && calEventsCache[key].length > 0;
+    const events = calEventsCache[key] || [];
     const classes = ['cal-day'];
     if(key === todayStr) classes.push('today');
     if(key === calSelectedDateStr) classes.push('selected');
+
+    const previewEvents = events.slice(0, MAX_PREVIEW);
+    const remaining = events.length - previewEvents.length;
+    const previewHtml = previewEvents.map(ev =>
+      `<span class="cal-day-event-preview">${escapeHtml(ev.title)}</span>`
+    ).join('') + (remaining > 0 ? `<span class="cal-day-more-badge">+${remaining}</span>` : '');
+
     html += `<button class="${classes.join(' ')}" data-date="${key}">
       <span class="cal-day-num">${d}</span>
-      ${hasEvents ? '<span class="cal-day-dot"></span>' : ''}
+      ${previewHtml}
     </button>`;
   }
   grid.innerHTML = html;
