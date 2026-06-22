@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>신안산업개발 ERP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas: #ffffff;
+    --sky: #e9ebf0;
+    --shadow-tint-blue: #edf6fd;
+    --charcoal: #292d34;
+    --deep-charcoal: #090c1d;
+    --onyx: #202023;
+    --ash: #e8e8e8;
+    --smoke: #b3b3b3;
+    --violet: #7b68ee;
+    --blue: #0091ff;
+    --radius-btn: 9px;
+    --radius-card: 12px;
+    --radius-pill: 54px;
+    --shadow-subtle: rgba(0,0,0,0.1) 0px 1px 3px 0px, rgba(0,0,0,0.1) 0px 1px 2px -1px;
+    --shadow-hover: rgba(18,43,165,0.04) 0px 1px 1px -0.5px, rgba(18,43,165,0.04) 0px 3px 3px -1.5px, rgba(18,43,165,0.04) 0px 6px 6px -3px;
+    --ok: #1a8754;
+    --ok-bg: #e6f6ee;
+    --no: #d6432f;
+    --no-bg: #fdeae7;
+    --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --sidebar-w: 248px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: var(--font-body);
+    background: var(--sky);
+    color: var(--charcoal);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app{
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ===== 사이드바 ===== */
+  .sidebar{
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--canvas);
+    border-right: 1px solid var(--ash);
+    padding: 20px 14px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .sidebar-brand{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 6px 8px 20px;
+  }
+  .brand-mark{
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-btn);
+    background: var(--onyx);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .sidebar-brand .name{
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--deep-charcoal);
+    letter-spacing: -0.3px;
+    line-height: 1.25;
+  }
+  .sidebar-brand .name span{
+    display:block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--smoke);
+    font-family: var(--font-body);
+  }
+  .nav-label{
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--smoke);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 10px 6px;
+  }
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-btn);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    color: var(--charcoal);
+    cursor: pointer;
+    text-align: left;
+    letter-spacing: -0.1px;
+    transition: background 0.15s, color 0.15s;
+    margin-bottom: 2px;
+  }
+  .nav-item i{ font-size: 18px; color: var(--smoke); flex-shrink: 0; transition: color 0.15s; }
+  .nav-item:hover{ background: var(--sky); }
+  .nav-item.active{ background: var(--onyx); color: #fff; }
+  .nav-item.active i{ color: #fff; }
+  .nav-item .badge{
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--smoke);
+    background: var(--sky);
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+  }
+  .nav-item.active .badge{
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+  }
+  .nav-divider{
+    height: 1px;
+    background: var(--ash);
+    margin: 14px 10px;
+  }
+  .notify-card{
+    padding: 10px 10px 8px;
+    margin-bottom: 4px;
+  }
+  .notify-card-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 8px;
+  }
+  .notify-title{
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--deep-charcoal);
+    letter-spacing: -0.1px;
+  }
+  .notify-times{
+    display:block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--violet);
+    font-family: var(--font-display);
+    margin-top: 4px;
+  }
+  .switch{
+    position: relative;
+    display:inline-block;
+    width: 38px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{
+    position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0;
+    background-color: var(--ash);
+    border-radius: 22px;
+    transition: background-color 0.2s;
+  }
+  .slider:before{
+    position:absolute; content:""; height:16px; width:16px; left:3px; bottom:3px;
+    background-color: #fff; border-radius:50%; transition: transform 0.2s;
+    box-shadow: var(--shadow-subtle);
+  }
+  .switch input:checked + .slider{ background-color: var(--violet); }
+  .switch input:checked + .slider:before{ transform: translateX(16px); }
+  .notify-status{
+    font-size: 11px;
+    color: var(--smoke);
+    margin: 6px 0 0;
+  }
+  .notify-status.on{ color: var(--ok); font-weight: 600; }
+
+  .quick-todo-form{
+    padding: 0 10px;
+    margin-bottom: 8px;
+  }
+  .quick-todo-form input[type=text]{
+    font-size: 12.5px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+  }
+  .quick-todo-row{
+    display:flex;
+    gap: 6px;
+  }
+  .quick-todo-minutes-wrap{
+    position: relative;
+    flex-shrink: 0;
+    width: 84px;
+  }
+  .quick-todo-minutes-wrap input[type=number]{
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 30px 7px 10px;
+    width: 100%;
+    text-align: left;
+    -moz-appearance: textfield;
+  }
+  .quick-todo-minutes-wrap input[type=number]::-webkit-outer-spin-button,
+  .quick-todo-minutes-wrap input[type=number]::-webkit-inner-spin-button{
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .quick-todo-minutes-wrap::after{
+    content: "분";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--smoke);
+    pointer-events: none;
+  }
+  .quick-todo-row .btn{
+    flex: 1;
+    padding: 7px 8px;
+    font-size: 12px;
+    justify-content: center;
+  }
+  .todo-card{
+    margin: 0 10px 8px;
+    padding: 9px 10px;
+    background: var(--sky);
+    border-radius: var(--radius-btn);
+    font-size: 12px;
+    animation: todoCardIn 0.25s ease;
+    transition: opacity 0.35s ease, transform 0.35s ease, margin 0.35s ease, max-height 0.35s ease, padding 0.35s ease;
+    max-height: 200px;
+    overflow: hidden;
+  }
+  @keyframes todoCardIn{
+    from{ opacity: 0; transform: translateY(-6px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+  .todo-card.todo-card-leaving{
+    opacity: 0;
+    transform: translateX(-24px);
+    margin-top: 0;
+    margin-bottom: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .todo-card-title{
+    font-weight: 700;
+    color: var(--charcoal);
+    font-family: var(--font-display);
+    letter-spacing: -0.1px;
+    margin-bottom: 3px;
+    word-break: break-word;
+  }
+  .todo-card-time{
+    color: var(--smoke);
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .todo-card-time[data-fire-at]{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--violet);
+    letter-spacing: 0.3px;
+  }
+  .todo-card-actions{
+    display:flex;
+    gap: 5px;
+  }
+  .todo-card-actions .btn{
+    padding: 5px 8px;
+    font-size: 11px;
+    flex: 1;
+    justify-content: center;
+  }
+  .todo-card.status-done .todo-card-time, .todo-card.status-cancelled .todo-card-time{
+    font-weight: 700;
+  }
+  .todo-card.status-done{ background: var(--ok-bg); }
+  .todo-card.status-done .todo-card-time{ color: var(--ok); }
+  .todo-card.status-cancelled{ background: var(--no-bg); }
+  .todo-card.status-cancelled .todo-card-time{ color: var(--no); }
+
+  /* ===== 메인 영역 ===== */
+  .main{
+    flex: 1;
+    min-width: 0;
+    padding: 32px 36px 80px;
+  }
+  .main-inner{ max-width: 880px; }
+  .page-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-header h1{
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    margin:0;
+    color: var(--deep-charcoal);
+  }
+  .page-header .date{
+    font-size: 13px;
+    color: var(--smoke);
+    font-weight: 500;
+  }
+  .subtabs{
+    display:flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--canvas);
+    padding: 4px;
+    border-radius: var(--radius-btn);
+    width: fit-content;
+    box-shadow: var(--shadow-subtle);
+  }
+  .subtab{
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    border: none;
+    background: transparent;
+    color: var(--smoke);
+    border-radius: 7px;
+    cursor: pointer;
+    letter-spacing: -0.1px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .subtab.active{ background: var(--onyx); color: #fff; }
+  .subtab:not(.active):hover{ background: var(--sky); color: var(--charcoal); }
+
+  .panel{
+    background: var(--canvas);
+    border-radius: var(--radius-card);
+    padding: 24px;
+    box-shadow: var(--shadow-subtle);
+  }
+  section.block{ margin-bottom: 28px; }
+  section.block:last-child{ margin-bottom: 0; }
+  .block-title{
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--charcoal);
+    letter-spacing: 0.2px;
+    margin: 0 0 14px;
+  }
+  .block-title .count{ color: var(--violet); font-weight: 800; }
+
+  form#addForm{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 14px;
+  }
+  form#addForm .full{ grid-column: 1 / -1; }
+  .field label{
+    display:block;
+    font-size: 12px;
+    color: var(--smoke);
+    margin-bottom: 5px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+  }
+  input[type=text], textarea, select{
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--ash);
+    border-radius: var(--radius-btn);
+    font-size: 14px;
+    font-family: var(--font-body);
+    background: var(--canvas);
+    color: var(--charcoal);
+    letter-spacing: -0.1px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type=text]:focus, textarea:focus, select:focus{
+    outline: none;
+    border-color: var(--violet);
+    box-shadow: 0 0 0 3px rgba(123,104,238,0.12);
+  }
+  textarea{ resize: vertical; min-height: 56px; }
+  input::placeholder{ color: var(--smoke); }
+  .hint{ font-size: 11px; color: var(--smoke); margin-top: 4px; }
+  .btn{
+    padding: 9px 16px;
+    border-radius: var(--radius-btn);
+    border: 1px solid var(--ash);
+    background: var(--canvas);
+    color: var(--charcoal);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    cursor: pointer;
+    letter-spacing: -0.1px;
+    transition: background 0.15s, box-shadow 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover{ box-shadow: var(--shadow-hover); }
+  .btn.primary{ background: var(--onyx); color: #fff; border-color: var(--onyx); }
+  .btn.primary:hover{ background: #2e2e31; }
+  .btn.danger{ color: var(--no); border-color: var(--no-bg); background: var(--no-bg); }
+  .btn.danger:hover{ background: #fbdcd6; }
+  .btn.small{ padding: 6px 10px; font-size: 12px; }
+
+  table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td{ padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--ash); vertical-align: middle; }
+  th{
+    font-size: 11px; color: var(--smoke); text-transform: uppercase;
+    letter-spacing: 0.4px; font-weight: 700; font-family: var(--font-display);
+  }
+  tbody tr:hover{ background: var(--shadow-tint-blue); }
+  td.content-cell{ max-width: 250px; color: var(--charcoal); opacity: 0.85; }
+  .attend-select{
+    width: 66px; padding: 6px 6px; font-weight: 700; text-align: center;
+    border-radius: var(--radius-pill); border: 1px solid transparent; font-family: var(--font-display);
+  }
+  .attend-select.is-o{ background: var(--ok-bg); color: var(--ok); }
+  .attend-select.is-x{ background: var(--no-bg); color: var(--no); }
+  .name-cell{ font-weight: 700; font-family: var(--font-display); letter-spacing: -0.2px; line-height: 1.4; }
+  .sub{ font-size: 11px; color: var(--smoke); font-weight: 500; line-height: 1.4; margin-top: 1px; }
+  .empty{ text-align:center; color: var(--smoke); padding: 40px 0; font-size: 13px; }
+
+  .report-toolbar{
+    display:flex; align-items:center; justify-content: space-between;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+  }
+  .report-toolbar .stats{ font-size: 13px; color: var(--charcoal); font-weight: 500; }
+  .report-toolbar .stats b{ color: var(--violet); font-weight: 800; }
+  #reportOutput{
+    background: var(--sky); border-radius: var(--radius-card); padding: 18px;
+    font-family: 'Sometype Mono', 'SF Mono', Consolas, monospace;
+    font-size: 12.5px; white-space: pre-wrap; line-height: 1.75;
+    max-height: 560px; overflow-y: auto; color: var(--charcoal);
+  }
+  .copied-msg{
+    font-size: 12px; color: var(--ok); font-weight: 700; margin-left: 8px;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .copied-msg.show{ opacity: 1; }
+
+  .modal-overlay{
+    position: fixed; top:0; left:0; right:0; bottom:0;
+    background: rgba(9,12,29,0.45); display:none;
+    align-items:center; justify-content:center; z-index: 50; padding: 20px;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal{
+    background: var(--canvas); border-radius: var(--radius-card); padding: 24px;
+    width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-subtle);
+  }
+  .modal h3{
+    margin: 0 0 18px; font-size: 17px; font-family: var(--font-display);
+    font-weight: 700; color: var(--deep-charcoal);
+  }
+  .toast{
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--onyx); color: #fff; padding: 10px 18px; border-radius: var(--radius-btn);
+    font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s; z-index: 100; box-shadow: var(--shadow-subtle);
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(-6px); }
+
+  /* ===== 알림 배너 (우측 상단, 보고/할일 알림 전용) ===== */
+  .alert-banner-stack{
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 200;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 340px;
+    max-width: calc(100vw - 40px);
+  }
+  .alert-banner{
+    background: #fff;
+    border-left: 6px solid var(--no);
+    border-radius: var(--radius-card);
+    padding: 14px 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
+    animation: alertBannerIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    max-height: 200px;
+    overflow: hidden;
+  }
+  .alert-banner.leaving{
+    opacity: 0;
+    transform: translateX(40px);
+    max-height: 0;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+  }
+  @keyframes alertBannerIn{
+    from{ opacity: 0; transform: translateX(40px) scale(0.97); }
+    to{ opacity: 1; transform: translateX(0) scale(1); }
+  }
+  .alert-banner-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .alert-banner-title{
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--deep-charcoal);
+    letter-spacing: -0.2px;
+  }
+  .alert-banner-close{
+    border: none;
+    background: transparent;
+    color: var(--smoke);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .alert-banner-close:hover{ color: var(--charcoal); }
+  .alert-banner-body{
+    font-size: 13px;
+    color: var(--charcoal);
+    opacity: 0.85;
+  }
+  .alert-banner.kind-accident{ border-left-color: var(--no); }
+  .alert-banner.kind-equipment{ border-left-color: var(--blue); }
+  .alert-banner.kind-todo{ border-left-color: var(--violet); }
+
+  .loading{ text-align:center; padding: 32px; color: var(--smoke); font-size: 13px; }
+
+  .placeholder-panel{
+    background: var(--canvas);
+    border-radius: var(--radius-card);
+    padding: 60px 24px;
+    text-align: center;
+    box-shadow: var(--shadow-subtle);
+  }
+  .placeholder-panel i{ font-size: 32px; color: var(--smoke); margin-bottom: 12px; display:block; }
+  .placeholder-panel h2{
+    font-family: var(--font-display); font-size: 16px; font-weight: 700;
+    color: var(--deep-charcoal); margin: 0 0 6px;
+  }
+  .placeholder-panel p{ font-size: 13px; color: var(--smoke); margin: 0; }
+
+  /* 모바일: 사이드바를 상단 가로 메뉴로 */
+  @media (max-width: 860px){
+    .app{ flex-direction: column; }
+    .sidebar{
+      width: 100%; height: auto; position: relative;
+      display:flex; align-items:center; padding: 12px 14px; overflow-x: auto;
+      border-right: none; border-bottom: 1px solid var(--ash);
+    }
+    .sidebar-brand{ padding: 0 14px 0 0; flex-shrink: 0; }
+    .nav-label, .nav-divider, .notify-card, .quick-todo-form, #activeTodoCards{ display:none; }
+    .sidebar nav{ display:flex; gap: 6px; }
+    .nav-item{ white-space: nowrap; margin-bottom: 0; }
+    .main{ padding: 22px 16px 60px; }
+  }
+  @media (max-width: 640px){
+    form#addForm{ grid-template-columns: 1fr; }
+    table, thead, tbody, th, td, tr{ display:block; }
+    thead{ display:none; }
+    tbody tr{ border: 1px solid var(--ash); border-radius: var(--radius-card); margin-bottom: 10px; padding: 10px; }
+    td{ border-bottom: none; padding: 4px 0; }
+    td::before{
+      content: attr(data-label); font-size: 10px; color: var(--smoke);
+      display:block; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700;
+    }
+    .alert-banner-stack{ top: 12px; right: 12px; left: 12px; width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">신</div>
+      <div class="name">신안산업개발<span>ERP</span></div>
+    </div>
+    <nav>
+      <p class="nav-label">알림</p>
+      <div class="notify-card">
+        <div class="notify-card-top">
+          <span class="notify-title">🔔 사고근태보고하기</span>
+          <label class="switch">
+            <input type="checkbox" id="notifyToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <span class="notify-times">7:30 / 7:40 / 7:50</span>
+        <p class="notify-status" id="notifyStatus">알림이 꺼져 있습니다</p>
+      </div>
+      <div class="notify-card">
+        <div class="notify-card-top">
+          <span class="notify-title">🔔 장비작업보고하기</span>
+          <label class="switch">
+            <input type="checkbox" id="notifyToggle2">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <span class="notify-times">9:00 / 10:00 / 10:30</span>
+        <p class="notify-status" id="notifyStatus2">알림이 꺼져 있습니다</p>
+      </div>
+      <div class="nav-divider"></div>
+      <p class="nav-label">할일 알림</p>
+      <form id="quickTodoForm" class="quick-todo-form">
+        <input type="text" id="qt-title" placeholder="예) 홍길동 과장님 서류 제출" required maxlength="80">
+        <div class="quick-todo-row">
+          <div class="quick-todo-minutes-wrap">
+            <input type="number" id="qt-minutes" placeholder="30" min="1" max="999" required>
+          </div>
+          <button type="submit" class="btn small primary">등록</button>
+        </div>
+      </form>
+      <div id="activeTodoCards"></div>
+      <div class="nav-divider"></div>
+      <p class="nav-label">카테고리</p>
+      <button class="nav-item active" data-category="accident">사고근태방</button>
+      <button class="nav-item" data-category="prevention">재발방지대책<span class="badge">준비중</span></button>
+      <button class="nav-item" data-category="todos">알림내역</button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="main-inner">
+
+      <!-- ===== 사고근태방 카테고리 ===== -->
+      <div id="category-accident">
+        <div class="page-header">
+          <h1>사고근태방</h1>
+          <div class="date" id="todayLabel"></div>
+        </div>
+
+        <div class="subtabs">
+          <button class="subtab active" data-tab="list">인원 관리</button>
+          <button class="subtab" data-tab="report">근태보고 생성</button>
+        </div>
+
+        <div class="panel" id="panel-list">
+          <section class="block">
+            <p class="block-title">인원 등록</p>
+            <form id="addForm">
+              <div class="field">
+                <label for="f-name">이름</label>
+                <input type="text" id="f-name" placeholder="예) 정종승" required>
+              </div>
+              <div class="field">
+                <label for="f-birth">생일</label>
+                <input type="text" id="f-birth" placeholder="710428 또는 71.04.28" required pattern="\d{2}\.\d{2}\.\d{2}" inputmode="numeric" maxlength="8">
+                <div class="hint">숫자만 입력해도 자동으로 YY.MM.DD 형식이 됩니다</div>
+              </div>
+              <div class="field">
+                <label for="f-accidentDate">사고 날짜</label>
+                <input type="text" id="f-accidentDate" placeholder="260428 또는 26.04.28" required pattern="\d{2}\.\d{2}\.\d{2}" inputmode="numeric" maxlength="8">
+                <div class="hint">숫자만 입력해도 자동으로 YY.MM.DD 형식이 됩니다</div>
+              </div>
+              <div class="field">
+                <label for="f-leave">3일 이상 휴업 날짜</label>
+                <input type="text" id="f-leave" placeholder="05.01 ~ 05.06 (없으면 비워두세요)">
+                <div class="hint">없으면 N/A로 표시됩니다</div>
+              </div>
+              <div class="field full">
+                <label for="f-content">사고 내용</label>
+                <textarea id="f-content" placeholder="예) 우측 눈꺼풀이 붓고 따가움. 충혈,눈물(다래끼 추정)" required></textarea>
+              </div>
+              <div class="field">
+                <label for="f-note">비고</label>
+                <select id="f-note">
+                  <option value="N/A">N/A</option>
+                  <option value="휴무">휴무</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="f-attendance">출근여부 (초기값)</label>
+                <select id="f-attendance">
+                  <option value="O">O (출근)</option>
+                  <option value="X">X (미출근)</option>
+                </select>
+              </div>
+              <div class="full" style="display:flex; justify-content:flex-end; margin-top:4px;">
+                <button type="submit" class="btn primary">+ 인원 추가</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="block">
+            <p class="block-title">등록된 인원 (<span class="count" id="countLabel">0</span>명)</p>
+            <div id="listArea"><div class="loading">불러오는 중...</div></div>
+          </section>
+        </div>
+
+        <div class="panel" id="panel-report" style="display:none;">
+          <div class="report-toolbar">
+            <div class="stats" id="reportStats"></div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn" id="copyBtn">전체 복사</button>
+              <span class="copied-msg" id="copiedMsg">복사됨</span>
+            </div>
+          </div>
+          <div id="reportOutput">인원 관리 탭에서 인원을 등록하면 여기에 오늘자 보고가 생성됩니다.</div>
+        </div>
+      </div>
+
+      <!-- ===== 재발방지대책 카테고리 (준비중) ===== -->
+      <div id="category-prevention" style="display:none;">
+        <div class="page-header">
+          <h1>재발방지대책</h1>
+        </div>
+        <div class="placeholder-panel">
+          <h2>아직 준비 중인 카테고리입니다</h2>
+          <p>기능 요구사항을 정한 뒤 이 자리에 만들어질 예정입니다.</p>
+        </div>
+      </div>
+
+      <!-- ===== 알림내역 카테고리 ===== -->
+      <div id="category-todos" style="display:none;">
+        <div class="page-header">
+          <h1>알림내역</h1>
+        </div>
+
+        <div class="subtabs" id="todoFilterTabs">
+          <button class="subtab active" data-todo-filter="all">전체</button>
+          <button class="subtab" data-todo-filter="pending">대기중</button>
+          <button class="subtab" data-todo-filter="held">보류</button>
+          <button class="subtab" data-todo-filter="done">완료</button>
+          <button class="subtab" data-todo-filter="cancelled">취소</button>
+        </div>
+
+        <div class="panel">
+          <section class="block">
+            <p class="block-title">전체 이력 (<span class="count" id="todoCountLabel">0</span>건)</p>
+            <div id="todoListArea"><div class="loading">불러오는 중...</div></div>
+          </section>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal">
+    <h3>인원 정보 수정</h3>
+    <form id="editForm">
+      <input type="hidden" id="e-id">
+      <div class="field" style="margin-bottom:12px;">
+        <label for="e-name">이름</label>
+        <input type="text" id="e-name" required>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="e-birth">생일 (YY.MM.DD)</label>
+        <input type="text" id="e-birth" required pattern="\d{2}\.\d{2}\.\d{2}" inputmode="numeric" maxlength="8">
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="e-accidentDate">사고 날짜 (YY.MM.DD)</label>
+        <input type="text" id="e-accidentDate" required pattern="\d{2}\.\d{2}\.\d{2}" inputmode="numeric" maxlength="8">
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="e-content">사고 내용</label>
+        <textarea id="e-content" required></textarea>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="e-leave">3일 이상 휴업 날짜</label>
+        <input type="text" id="e-leave" placeholder="05.01 ~ 05.06 (없으면 비워두세요)">
+      </div>
+      <div class="field" style="margin-bottom:18px;">
+        <label for="e-note">비고</label>
+        <select id="e-note">
+          <option value="N/A">N/A</option>
+          <option value="휴무">휴무</option>
+        </select>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="cancelEdit">취소</button>
+        <button type="submit" class="btn primary">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="holdOverlay">
+  <div class="modal">
+    <h3>보류 설정</h3>
+    <form id="holdForm">
+      <input type="hidden" id="hold-id">
+      <div class="field" style="margin-bottom:14px;">
+        <label>보류 방식</label>
+        <select id="hold-mode">
+          <option value="infinite">무한 보류 (다시 알리지 않음)</option>
+          <option value="snooze">일정 시간 후 다시 알림</option>
+        </select>
+      </div>
+      <div class="field" id="hold-minutes-field" style="margin-bottom:18px; display:none;">
+        <label for="hold-minutes">몇 분 후 다시 알릴까요?</label>
+        <input type="number" id="hold-minutes" min="1" max="999" placeholder="예) 30">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="cancelHold">취소</button>
+        <button type="submit" class="btn primary">보류 처리</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cancelTodoOverlay">
+  <div class="modal">
+    <h3>취소 사유</h3>
+    <form id="cancelTodoForm">
+      <input type="hidden" id="cancel-id">
+      <div class="field" style="margin-bottom:18px;">
+        <label for="cancel-reason">왜 취소하나요?</label>
+        <textarea id="cancel-reason" placeholder="예) 다른 직원이 대신 처리함" required></textarea>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="cancelCancelTodo">닫기</button>
+        <button type="submit" class="btn primary">취소 처리</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="alert-banner-stack" id="alertBannerStack"></div>
+
+<script>
+const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZvV84IlloZ4q6pKXzk0pj4UUmFmholP8-2Z7kRyNtf73rgeAbTR0XEUp2wgmtf1tZ/exec';
+let people = [];
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+function todayParts(){
+  const d = new Date();
+  return { full: `${pad(d.getFullYear()%100)}.${pad(d.getMonth()+1)}.${pad(d.getDate())}` };
+}
+
+function setTodayLabel(){
+  document.getElementById('todayLabel').textContent = todayParts().full + ' 기준';
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function genId(){
+  return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+}
+
+function formatDateInput(value){
+  const digits = value.replace(/\D/g, '').slice(0, 6);
+  if(digits.length <= 2) return digits;
+  if(digits.length <= 4) return digits.slice(0,2) + '.' + digits.slice(2);
+  return digits.slice(0,2) + '.' + digits.slice(2,4) + '.' + digits.slice(4,6);
+}
+
+function attachDateAutoFormat(input){
+  input.addEventListener('input', () => {
+    const cursorWasAtEnd = input.selectionStart === input.value.length;
+    input.value = formatDateInput(input.value);
+    if(cursorWasAtEnd){
+      input.selectionStart = input.selectionEnd = input.value.length;
+    }
+  });
+}
+
+['f-birth', 'f-accidentDate', 'e-birth', 'e-accidentDate'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) attachDateAutoFormat(el);
+});
+
+async function loadPeople(){
+  document.getElementById('listArea').innerHTML = '<div class="loading">불러오는 중...</div>';
+  try{
+    const res = await fetch(SHEET_API_URL);
+    const data = await res.json();
+    if(data.ok){
+      people = data.people.map(p => ({
+        id: p.id, name: p.name, birth: p.birth, accidentDate: p.accidentDate,
+        content: p.content, attendance: p.attendance || 'O', leave: p.leave || '', note: p.note || 'N/A'
+      }));
+    }else{
+      people = [];
+      showToast('데이터를 불러오지 못했습니다.');
+    }
+  }catch(e){
+    people = [];
+    showToast('구글 시트 연결에 실패했습니다. 인터넷 연결을 확인해주세요.');
+  }
+  renderList();
+  renderReport();
+}
+
+async function savePeople(){
+  try{
+    const res = await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'replaceAll', people: people })
+    });
+    const data = await res.json();
+    if(!data.ok){
+      showToast('저장 실패. 다시 시도해주세요.');
+    }
+  }catch(e){
+    showToast('저장 실패. 인터넷 연결을 확인해주세요.');
+  }
+}
+
+function renderList(){
+  const area = document.getElementById('listArea');
+  document.getElementById('countLabel').textContent = people.length;
+  if(people.length === 0){
+    area.innerHTML = '<div class="empty">등록된 인원이 없습니다. 위 양식으로 인원을 추가하세요.</div>';
+    return;
+  }
+  let html = '<table><thead><tr>'
+    + '<th>이름 / 생일</th><th>사고날짜</th><th>내용</th><th>출근여부</th><th>휴업기간</th><th>비고</th><th></th>'
+    + '</tr></thead><tbody>';
+  for(const p of people){
+    html += `<tr data-id="${p.id}">
+      <td data-label="이름/생일"><div class="name-cell">${escapeHtml(p.name)}</div><div class="sub">${escapeHtml(p.birth)}</div></td>
+      <td data-label="사고날짜">${escapeHtml(p.accidentDate)}</td>
+      <td data-label="내용" class="content-cell">${escapeHtml(p.content)}</td>
+      <td data-label="출근여부">
+        <select class="attend-select ${p.attendance==='O'?'is-o':'is-x'}" data-action="attendance" data-id="${p.id}">
+          <option value="O" ${p.attendance==='O'?'selected':''}>O</option>
+          <option value="X" ${p.attendance==='X'?'selected':''}>X</option>
+        </select>
+      </td>
+      <td data-label="휴업기간">${p.leave ? escapeHtml(p.leave) : '<span class="sub">N/A</span>'}</td>
+      <td data-label="비고">${escapeHtml(p.note)}</td>
+      <td data-label="">
+        <div style="display:flex; gap:6px; white-space:nowrap; align-items:center;">
+          <button class="btn small" data-action="edit" data-id="${p.id}">수정</button>
+          <button class="btn small danger" data-action="delete" data-id="${p.id}">삭제</button>
+        </div>
+      </td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  area.innerHTML = html;
+}
+
+function escapeHtml(s){
+  if(s === undefined || s === null) return '';
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildReportText(){
+  const today = todayParts().full;
+  if(people.length === 0) return '';
+  const blocks = people.map(p => {
+    return `[신안산업개발 ${today} 근태보고]
+1. 이름/생일 : ${p.name} / ${p.birth}
+2. 사고 날짜 : ${p.accidentDate}
+3. 내용 : ${p.content}
+4. 출근여부: ${p.attendance}
+5. 3일 이상 휴업 날짜 : ${p.leave ? p.leave : 'N/A'}
+6. 비고 : ${p.note}`;
+  });
+  return blocks.join('\n/ / / / /\n');
+}
+
+function renderReport(){
+  const out = document.getElementById('reportOutput');
+  const stats = document.getElementById('reportStats');
+  if(people.length === 0){
+    out.textContent = '인원 관리 탭에서 인원을 등록하면 여기에 오늘자 보고가 생성됩니다.';
+    stats.textContent = '';
+    return;
+  }
+  const oCount = people.filter(p=>p.attendance==='O').length;
+  const xCount = people.length - oCount;
+  stats.innerHTML = `전체 <b>${people.length}</b>명 · 출근 <b>${oCount}</b> · 미출근 <b>${xCount}</b>`;
+  out.textContent = buildReportText();
+}
+
+function switchTab(name){
+  document.querySelectorAll('.subtab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('panel-list').style.display = name === 'list' ? '' : 'none';
+  document.getElementById('panel-report').style.display = name === 'report' ? '' : 'none';
+  if(name === 'report') renderReport();
+}
+
+document.querySelectorAll('.subtab').forEach(t => {
+  t.addEventListener('click', () => switchTab(t.dataset.tab));
+});
+
+function switchCategory(name){
+  document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.category === name));
+  document.getElementById('category-accident').style.display = name === 'accident' ? '' : 'none';
+  document.getElementById('category-todos').style.display = name === 'todos' ? '' : 'none';
+  document.getElementById('category-prevention').style.display = name === 'prevention' ? '' : 'none';
+  if(name === 'todos') renderTodoHistory();
+}
+
+document.querySelectorAll('.nav-item').forEach(t => {
+  t.addEventListener('click', () => switchCategory(t.dataset.category));
+});
+
+document.getElementById('addForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('f-name').value.trim();
+  const birth = document.getElementById('f-birth').value.trim();
+  const accidentDate = document.getElementById('f-accidentDate').value.trim();
+  const content = document.getElementById('f-content').value.trim();
+  const leave = document.getElementById('f-leave').value.trim();
+  const note = document.getElementById('f-note').value;
+  const attendance = document.getElementById('f-attendance').value;
+
+  if(!name || !birth || !accidentDate || !content){
+    showToast('필수 항목을 모두 입력해주세요.');
+    return;
+  }
+
+  people.push({ id: genId(), name, birth, accidentDate, content, leave, note, attendance });
+  renderList();
+  renderReport();
+  e.target.reset();
+  document.getElementById('f-note').value = 'N/A';
+  document.getElementById('f-attendance').value = 'O';
+  showToast('인원이 추가되었습니다.');
+  await savePeople();
+});
+
+document.getElementById('listArea').addEventListener('change', async (e) => {
+  const action = e.target.dataset.action;
+  if(action === 'attendance'){
+    const id = e.target.dataset.id;
+    const p = people.find(p => p.id === id);
+    if(p){
+      p.attendance = e.target.value;
+      e.target.classList.toggle('is-o', p.attendance === 'O');
+      e.target.classList.toggle('is-x', p.attendance === 'X');
+      renderReport();
+      await savePeople();
+    }
+  }
+});
+
+document.getElementById('listArea').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  if(action === 'delete'){
+    if(confirm('이 인원을 목록에서 삭제할까요? 이 작업은 되돌릴 수 없습니다.')){
+      people = people.filter(p => p.id !== id);
+      renderList();
+      renderReport();
+      showToast('삭제되었습니다.');
+      await savePeople();
+    }
+  } else if(action === 'edit'){
+    openEdit(id);
+  }
+});
+
+function openEdit(id){
+  const p = people.find(p => p.id === id);
+  if(!p) return;
+  document.getElementById('e-id').value = p.id;
+  document.getElementById('e-name').value = p.name;
+  document.getElementById('e-birth').value = p.birth;
+  document.getElementById('e-accidentDate').value = p.accidentDate;
+  document.getElementById('e-content').value = p.content;
+  document.getElementById('e-leave').value = p.leave || '';
+  document.getElementById('e-note').value = p.note;
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+document.getElementById('cancelEdit').addEventListener('click', () => {
+  document.getElementById('editOverlay').classList.remove('show');
+});
+document.getElementById('editOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'editOverlay') document.getElementById('editOverlay').classList.remove('show');
+});
+
+document.getElementById('editForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('e-id').value;
+  const p = people.find(p => p.id === id);
+  if(!p) return;
+  p.name = document.getElementById('e-name').value.trim();
+  p.birth = document.getElementById('e-birth').value.trim();
+  p.accidentDate = document.getElementById('e-accidentDate').value.trim();
+  p.content = document.getElementById('e-content').value.trim();
+  p.leave = document.getElementById('e-leave').value.trim();
+  p.note = document.getElementById('e-note').value;
+  renderList();
+  renderReport();
+  document.getElementById('editOverlay').classList.remove('show');
+  showToast('수정되었습니다.');
+  await savePeople();
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const text = buildReportText();
+  if(!text) return;
+  try{
+    await navigator.clipboard.writeText(text);
+    const msg = document.getElementById('copiedMsg');
+    msg.classList.add('show');
+    setTimeout(()=>msg.classList.remove('show'), 1500);
+  }catch(e){
+    showToast('복사에 실패했습니다. 직접 선택 후 복사해주세요.');
+  }
+});
+
+setTodayLabel();
+loadPeople();
+
+/* ===== 보고 알림 (사고근태보고 / 장비작업보고) ===== */
+const NOTIFY_DEFS = [
+  {
+    key: 'accident',
+    toggleId: 'notifyToggle',
+    statusId: 'notifyStatus',
+    title: '사고근태보고하기',
+    body: '근태보고를 작성할 시간입니다.',
+    times: ['07:30', '07:40', '07:50'],
+    prefKey: 'accident-report-notify-enabled'
+  },
+  {
+    key: 'equipment',
+    toggleId: 'notifyToggle2',
+    statusId: 'notifyStatus2',
+    title: '장비작업보고하기',
+    body: '장비작업보고를 작성할 시간입니다.',
+    times: ['09:00', '10:00', '10:30'],
+    prefKey: 'equipment-report-notify-enabled'
+  }
+];
+let lastFiredMinute = {};
+
+function getNotifyPref(prefKey){
+  try{ return localStorage.getItem(prefKey) === 'true'; }catch(e){ return false; }
+}
+function setNotifyPref(prefKey, val){
+  try{ localStorage.setItem(prefKey, val ? 'true' : 'false'); }catch(e){}
+}
+
+function updateNotifyStatusUI(def, enabled){
+  const status = document.getElementById(def.statusId);
+  if(enabled){
+    status.textContent = '알림이 켜져 있습니다 (이 탭이 열려있을 때만 동작)';
+    status.classList.add('on');
+  }else{
+    status.textContent = '알림이 꺼져 있습니다';
+    status.classList.remove('on');
+  }
+}
+
+let bannerSeq = 0;
+function showAlertBanner(kind, icon, title, body){
+  const stack = document.getElementById('alertBannerStack');
+  const id = 'banner_' + (++bannerSeq);
+  const el = document.createElement('div');
+  el.className = `alert-banner kind-${kind}`;
+  el.id = id;
+  el.innerHTML = `
+    <div class="alert-banner-top">
+      <span class="alert-banner-title">${icon} ${escapeHtml(title)}</span>
+      <button class="alert-banner-close" aria-label="닫기">&times;</button>
+    </div>
+    <div class="alert-banner-body">${escapeHtml(body)}</div>
+  `;
+  stack.appendChild(el);
+  const removeBanner = () => {
+    el.classList.add('leaving');
+    setTimeout(() => el.remove(), 320);
+  };
+  el.querySelector('.alert-banner-close').addEventListener('click', removeBanner);
+  setTimeout(removeBanner, 9000);
+}
+
+function fireReportNotification(def){
+  const title = def.title;
+  const body = todayParts().full + ' ' + def.body;
+  if('Notification' in window && Notification.permission === 'granted'){
+    try{ new Notification(title, { body: body }); }catch(e){}
+  }
+  showAlertBanner(def.key, '🔔', title, body);
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1100].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + i*0.18);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.18 + 0.16);
+      osc.start(ctx.currentTime + i*0.18);
+      osc.stop(ctx.currentTime + i*0.18 + 0.16);
+    });
+  }catch(e){}
+}
+
+function checkNotifyTime(){
+  const d = new Date();
+  const current = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  NOTIFY_DEFS.forEach(def => {
+    if(!getNotifyPref(def.prefKey)) return;
+    if(def.times.includes(current) && lastFiredMinute[def.key] !== current){
+      lastFiredMinute[def.key] = current;
+      fireReportNotification(def);
+    }
+  });
+}
+
+NOTIFY_DEFS.forEach(def => {
+  const toggle = document.getElementById(def.toggleId);
+  const initialPref = getNotifyPref(def.prefKey);
+  toggle.checked = initialPref;
+  updateNotifyStatusUI(def, initialPref);
+
+  toggle.addEventListener('change', async () => {
+    if(toggle.checked){
+      if('Notification' in window && Notification.permission !== 'granted'){
+        const perm = await Notification.requestPermission();
+        if(perm !== 'granted'){
+          showToast('브라우저 알림 권한이 거부되어 소리/토스트로만 알려드립니다.');
+        }
+      }
+      setNotifyPref(def.prefKey, true);
+      updateNotifyStatusUI(def, true);
+      showToast(`알림이 켜졌습니다. 이 탭을 열어두시면 ${def.times.join(' / ')}에 알려드려요.`);
+    }else{
+      setNotifyPref(def.prefKey, false);
+      updateNotifyStatusUI(def, false);
+      showToast('알림이 꺼졌습니다.');
+    }
+  });
+});
+
+setInterval(checkNotifyTime, 15000);
+checkNotifyTime();
+
+/* ===== 할일 알림 (커스텀 N분 후 알림) ===== */
+const TODOS_API_URL = SHEET_API_URL; // 같은 Apps Script, type=todos로 구분
+const TODO_DISPLAY_KEY = 'todo-fired-set'; // 이미 알림 울린 항목 기록(중복 알림 방지, 기기별)
+let todos = [];
+
+function genTodoId(){
+  return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+}
+
+function getFiredSet(){
+  try{ return new Set(JSON.parse(localStorage.getItem(TODO_DISPLAY_KEY) || '[]')); }catch(e){ return new Set(); }
+}
+function addToFiredSet(id){
+  const s = getFiredSet();
+  s.add(id);
+  try{ localStorage.setItem(TODO_DISPLAY_KEY, JSON.stringify([...s])); }catch(e){}
+}
+
+async function loadTodos(){
+  try{
+    const res = await fetch(TODOS_API_URL + '?type=todos');
+    const data = await res.json();
+    if(data.ok){
+      const prevResolvedMap = {};
+      todos.forEach(t => { if(t._localResolvedAt) prevResolvedMap[t.id] = t._localResolvedAt; });
+      todos = data.todos.map(t => ({
+        id: t.id, title: t.title, createdAt: t.createdAt, fireAt: t.fireAt,
+        status: t.status || 'pending', cancelReason: t.cancelReason || '', createdBy: t.createdBy || '',
+        _localResolvedAt: prevResolvedMap[t.id]
+      }));
+    }else{
+      todos = [];
+    }
+  }catch(e){
+    todos = [];
+  }
+  renderActiveTodoCards();
+  if(document.getElementById('category-todos').style.display !== 'none'){
+    renderTodoHistory();
+  }
+}
+
+async function saveTodos(){
+  try{
+    await fetch(TODOS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'todos', action: 'replaceAll', todos: todos })
+    });
+  }catch(e){
+    showToast('할일 알림 저장 실패. 인터넷 연결을 확인해주세요.');
+  }
+}
+
+function fireTodoNotification(todo){
+  const title = todo.title;
+  const body = '등록하신 할일 알림 시간이 되었습니다.';
+  if('Notification' in window && Notification.permission === 'granted'){
+    try{ new Notification('⏰ ' + title, { body: body }); }catch(e){}
+  }
+  showAlertBanner('todo', '⏰', title, body);
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [950, 1250, 950].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + i*0.16);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.16 + 0.14);
+      osc.start(ctx.currentTime + i*0.16);
+      osc.stop(ctx.currentTime + i*0.16 + 0.14);
+    });
+  }catch(e){}
+}
+
+function checkTodoFireTimes(){
+  if(todos.length === 0) return;
+  const now = Date.now();
+  const firedSet = getFiredSet();
+  let changed = false;
+  todos.forEach(t => {
+    if((t.status === 'pending' || t.status === 'held') && t.fireAt){
+      const fireTime = new Date(t.fireAt).getTime();
+      if(!isNaN(fireTime) && fireTime <= now && !firedSet.has(t.id + '_' + t.fireAt)){
+        fireTodoNotification(t);
+        addToFiredSet(t.id + '_' + t.fireAt);
+        changed = true;
+      }
+    }
+  });
+  if(changed) renderActiveTodoCards();
+}
+
+function formatDateTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return iso;
+  return `${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatRemaining(fireAtIso){
+  const diff = new Date(fireAtIso).getTime() - Date.now();
+  if(isNaN(diff)) return '';
+  if(diff <= 0) return '00:00:00';
+  const totalSec = Math.floor(diff / 1000);
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  const ss = totalSec % 60;
+  return `${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+}
+
+function renderActiveTodoCards(){
+  const area = document.getElementById('activeTodoCards');
+  // 사이드바에는: 대기중/보류 항목 + 완료/취소 후 30초 이내인 항목만 표시
+  const now = Date.now();
+  const visible = todos.filter(t => {
+    if(t.status === 'pending' || t.status === 'held') return true;
+    if((t.status === 'done' || t.status === 'cancelled') && t._localResolvedAt){
+      return (now - t._localResolvedAt) < 10000;
+    }
+    return false;
+  });
+  if(visible.length === 0){
+    area.innerHTML = '';
+    return;
+  }
+  area.innerHTML = visible.map(t => {
+    if(t.status === 'done'){
+      return `<div class="todo-card status-done" data-id="${t.id}">
+        <div class="todo-card-title">${escapeHtml(t.title)}</div>
+        <div class="todo-card-time">완료됨</div>
+      </div>`;
+    }
+    if(t.status === 'cancelled'){
+      return `<div class="todo-card status-cancelled" data-id="${t.id}">
+        <div class="todo-card-title">${escapeHtml(t.title)}</div>
+        <div class="todo-card-time">취소됨</div>
+      </div>`;
+    }
+    const isHeldInfinite = t.status === 'held' && !t.fireAt;
+    const timeLabel = isHeldInfinite ? '보류 중 (무한)' : ('남은 시간 ' + formatRemaining(t.fireAt));
+    const timeAttr = isHeldInfinite ? '' : `data-fire-at="${t.fireAt}"`;
+    return `<div class="todo-card" data-id="${t.id}">
+      <div class="todo-card-title">${escapeHtml(t.title)}</div>
+      <div class="todo-card-time" ${timeAttr}>${timeLabel}</div>
+      <div class="todo-card-actions">
+        <button class="btn small" data-todo-action="done" data-id="${t.id}">완료</button>
+        <button class="btn small" data-todo-action="hold" data-id="${t.id}">보류</button>
+        <button class="btn small danger" data-todo-action="cancel" data-id="${t.id}">취소</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function tickActiveTodoCountdowns(){
+  document.querySelectorAll('.todo-card-time[data-fire-at]').forEach(el => {
+    const fireAt = el.getAttribute('data-fire-at');
+    el.textContent = '남은 시간 ' + formatRemaining(fireAt);
+  });
+}
+setInterval(tickActiveTodoCountdowns, 1000);
+
+function scheduleCardRemoval(id){
+  // 10초 시점에 도달하기 0.4초 전, 카드에 사라짐 애니메이션 클래스를 먼저 붙이고
+  // 애니메이션이 끝난 뒤(약 0.4초 후) 실제로 다시 렌더링해서 DOM에서 제거한다.
+  setTimeout(() => {
+    const card = document.querySelector(`.todo-card[data-id="${id}"]`);
+    if(card) card.classList.add('todo-card-leaving');
+    setTimeout(() => renderActiveTodoCards(), 400);
+  }, 9600);
+}
+
+const TODO_STATUS_LABEL = { pending: '대기중', held: '보류', done: '완료', cancelled: '취소' };
+let currentTodoFilter = 'all';
+
+function renderTodoHistory(){
+  const area = document.getElementById('todoListArea');
+  const filtered = currentTodoFilter === 'all' ? todos : todos.filter(t => t.status === currentTodoFilter);
+  document.getElementById('todoCountLabel').textContent = filtered.length;
+  if(filtered.length === 0){
+    area.innerHTML = '<div class="empty">표시할 항목이 없습니다.</div>';
+    return;
+  }
+  const sorted = [...filtered].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  let html = '<table><thead><tr>'
+    + '<th>제목</th><th>등록시각</th><th>알림시각</th><th>상태</th><th>취소사유</th><th></th>'
+    + '</tr></thead><tbody>';
+  sorted.forEach(t => {
+    const actions = (t.status === 'pending' || t.status === 'held')
+      ? `<div style="display:flex; gap:6px; white-space:nowrap;">
+          <button class="btn small" data-todo-action="done" data-id="${t.id}">완료</button>
+          <button class="btn small" data-todo-action="hold" data-id="${t.id}">보류</button>
+          <button class="btn small danger" data-todo-action="cancel" data-id="${t.id}">취소</button>
+        </div>`
+      : '<span class="sub">-</span>';
+    html += `<tr>
+      <td data-label="제목"><div class="name-cell">${escapeHtml(t.title)}</div></td>
+      <td data-label="등록시각">${formatDateTime(t.createdAt)}</td>
+      <td data-label="알림시각">${t.status === 'held' && !t.fireAt ? '무한보류' : formatDateTime(t.fireAt)}</td>
+      <td data-label="상태">${TODO_STATUS_LABEL[t.status] || t.status}</td>
+      <td data-label="취소사유" class="content-cell">${t.cancelReason ? escapeHtml(t.cancelReason) : '<span class="sub">-</span>'}</td>
+      <td data-label="">${actions}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  area.innerHTML = html;
+}
+
+document.getElementById('todoFilterTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.subtab');
+  if(!btn) return;
+  document.querySelectorAll('#todoFilterTabs .subtab').forEach(b => b.classList.toggle('active', b === btn));
+  currentTodoFilter = btn.dataset.todoFilter;
+  renderTodoHistory();
+});
+
+document.getElementById('quickTodoForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = document.getElementById('qt-title').value.trim();
+  const minutes = parseInt(document.getElementById('qt-minutes').value, 10);
+  if(!title || !minutes || minutes < 1){
+    showToast('제목과 분(1 이상)을 입력해주세요.');
+    return;
+  }
+  const now = new Date();
+  const fireAt = new Date(now.getTime() + minutes * 60000);
+  todos.push({
+    id: genTodoId(), title, createdAt: now.toISOString(), fireAt: fireAt.toISOString(),
+    status: 'pending', cancelReason: '', createdBy: ''
+  });
+  renderActiveTodoCards();   // 먼저 화면에 즉시 추가
+  if(document.getElementById('category-todos').style.display !== 'none') renderTodoHistory();
+  e.target.reset();
+  showToast(`${minutes}분 후 알림이 등록되었습니다.`);
+  await saveTodos();         // 저장 요청은 백그라운드로 진행
+});
+
+function resolveTodoLocally(id){
+  const t = todos.find(x => x.id === id);
+  if(t){ t._localResolvedAt = Date.now(); }
+}
+
+async function handleTodoAction(action, id){
+  const t = todos.find(x => x.id === id);
+  if(!t) return;
+  // 이미 처리(완료/취소)된 항목에 대한 중복 클릭은 무시
+  if(t.status === 'done' || t.status === 'cancelled') return;
+
+  if(action === 'done'){
+    t.status = 'done';
+    resolveTodoLocally(id);
+    renderActiveTodoCards();   // 먼저 화면을 즉시 갱신 (버튼이 사라지므로 중복 클릭 자체가 불가능해짐)
+    renderTodoHistory();
+    showToast('완료 처리되었습니다.');
+    scheduleCardRemoval(id);
+    await saveTodos();         // 화면 갱신 후 저장 요청은 백그라운드로 진행
+  }else if(action === 'hold'){
+    openHoldModal(id);
+  }else if(action === 'cancel'){
+    openCancelTodoModal(id);
+  }
+}
+
+document.getElementById('activeTodoCards').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-todo-action]');
+  if(!btn) return;
+  handleTodoAction(btn.dataset.todoAction, btn.dataset.id);
+});
+document.getElementById('todoListArea').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-todo-action]');
+  if(!btn) return;
+  handleTodoAction(btn.dataset.todoAction, btn.dataset.id);
+});
+
+function openHoldModal(id){
+  document.getElementById('hold-id').value = id;
+  document.getElementById('hold-mode').value = 'infinite';
+  document.getElementById('hold-minutes-field').style.display = 'none';
+  document.getElementById('hold-minutes').value = '';
+  document.getElementById('holdOverlay').classList.add('show');
+}
+document.getElementById('hold-mode').addEventListener('change', (e) => {
+  document.getElementById('hold-minutes-field').style.display = e.target.value === 'snooze' ? '' : 'none';
+});
+document.getElementById('cancelHold').addEventListener('click', () => {
+  document.getElementById('holdOverlay').classList.remove('show');
+});
+document.getElementById('holdOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'holdOverlay') document.getElementById('holdOverlay').classList.remove('show');
+});
+document.getElementById('holdForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('hold-id').value;
+  const t = todos.find(x => x.id === id);
+  if(!t) return;
+  const mode = document.getElementById('hold-mode').value;
+  if(mode === 'infinite'){
+    t.status = 'held';
+    t.fireAt = '';
+  }else{
+    const minutes = parseInt(document.getElementById('hold-minutes').value, 10);
+    if(!minutes || minutes < 1){
+      showToast('몇 분 후인지 입력해주세요.');
+      return;
+    }
+    t.status = 'held';
+    t.fireAt = new Date(Date.now() + minutes * 60000).toISOString();
+  }
+  renderActiveTodoCards();
+  renderTodoHistory();
+  document.getElementById('holdOverlay').classList.remove('show');
+  showToast('보류 처리되었습니다.');
+  await saveTodos();
+});
+
+function openCancelTodoModal(id){
+  document.getElementById('cancel-id').value = id;
+  document.getElementById('cancel-reason').value = '';
+  document.getElementById('cancelTodoOverlay').classList.add('show');
+}
+document.getElementById('cancelCancelTodo').addEventListener('click', () => {
+  document.getElementById('cancelTodoOverlay').classList.remove('show');
+});
+document.getElementById('cancelTodoOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'cancelTodoOverlay') document.getElementById('cancelTodoOverlay').classList.remove('show');
+});
+document.getElementById('cancelTodoForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('cancel-id').value;
+  const t = todos.find(x => x.id === id);
+  if(!t) return;
+  const reason = document.getElementById('cancel-reason').value.trim();
+  if(!reason){
+    showToast('취소 사유를 입력해주세요.');
+    return;
+  }
+  t.status = 'cancelled';
+  t.cancelReason = reason;
+  resolveTodoLocally(id);
+  renderActiveTodoCards();
+  renderTodoHistory();
+  document.getElementById('cancelTodoOverlay').classList.remove('show');
+  showToast('취소 처리되었습니다.');
+  scheduleCardRemoval(id);
+  await saveTodos();
+});
+
+loadTodos();
+setInterval(checkTodoFireTimes, 15000);
+setInterval(loadTodos, 60000); // 다른 팀원이 등록한 항목도 1분마다 동기화
+
+
+</script>
+</body>
+</html>
