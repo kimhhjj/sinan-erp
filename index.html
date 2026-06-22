@@ -194,6 +194,24 @@
     margin: 6px 0 0;
   }
   .notify-status.on{ color: var(--ok); font-weight: 600; }
+  .notify-done-btn{
+    width: 100%;
+    margin-top: 8px;
+    justify-content: center;
+  }
+  .notify-card.done-today{
+    background: var(--sky);
+    opacity: 0.7;
+  }
+  .notify-card.done-today .notify-title{ color: var(--smoke); }
+  .notify-card.done-today .notify-times{ color: var(--smoke); text-decoration: line-through; }
+  .notify-done-btn.is-done{
+    background: var(--ash);
+    color: var(--smoke);
+    border-color: var(--ash);
+    cursor: default;
+  }
+  .notify-done-btn.is-done:hover{ box-shadow: none; }
 
   .quick-todo-form{
     padding: 0 10px;
@@ -717,7 +735,7 @@
     </div>
     <nav>
       <p class="nav-label">알림</p>
-      <div class="notify-card">
+      <div class="notify-card" id="notifyCard-accident">
         <div class="notify-card-top">
           <span class="notify-title">🔔 사고근태보고하기</span>
           <label class="switch">
@@ -727,8 +745,9 @@
         </div>
         <span class="notify-times">7:30 / 7:40 / 7:50</span>
         <p class="notify-status" id="notifyStatus">알림이 꺼져 있습니다</p>
+        <button class="btn small notify-done-btn" id="notifyDoneBtn-accident" data-notify-key="accident">오늘 완료</button>
       </div>
-      <div class="notify-card">
+      <div class="notify-card" id="notifyCard-equipment">
         <div class="notify-card-top">
           <span class="notify-title">🔔 장비작업보고하기</span>
           <label class="switch">
@@ -738,6 +757,7 @@
         </div>
         <span class="notify-times">9:00 / 10:00 / 10:30</span>
         <p class="notify-status" id="notifyStatus2">알림이 꺼져 있습니다</p>
+        <button class="btn small notify-done-btn" id="notifyDoneBtn-equipment" data-notify-key="equipment">오늘 완료</button>
       </div>
       <div class="nav-divider"></div>
       <p class="nav-label">할일 알림</p>
@@ -1315,7 +1335,8 @@ const NOTIFY_DEFS = [
     title: '사고근태보고하기',
     body: '근태보고를 작성할 시간입니다.',
     times: ['07:30', '07:40', '07:50'],
-    prefKey: 'accident-report-notify-enabled'
+    prefKey: 'accident-report-notify-enabled',
+    doneTodayKey: 'accident-report-done-date'
   },
   {
     key: 'equipment',
@@ -1324,10 +1345,34 @@ const NOTIFY_DEFS = [
     title: '장비작업보고하기',
     body: '장비작업보고를 작성할 시간입니다.',
     times: ['09:00', '10:00', '10:30'],
-    prefKey: 'equipment-report-notify-enabled'
+    prefKey: 'equipment-report-notify-enabled',
+    doneTodayKey: 'equipment-report-done-date'
   }
 ];
 let lastFiredMinute = {};
+
+function todayDateOnly(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function isDoneToday(def){
+  try{ return localStorage.getItem(def.doneTodayKey) === todayDateOnly(); }catch(e){ return false; }
+}
+
+function markDoneToday(def){
+  try{ localStorage.setItem(def.doneTodayKey, todayDateOnly()); }catch(e){}
+}
+
+function updateNotifyDoneUI(def){
+  const done = isDoneToday(def);
+  const card = document.getElementById('notifyCard-' + def.key);
+  const btn = document.getElementById('notifyDoneBtn-' + def.key);
+  card.classList.toggle('done-today', done);
+  btn.classList.toggle('is-done', done);
+  btn.textContent = done ? '오늘 완료됨' : '오늘 완료';
+}
+
 
 function getNotifyPref(prefKey){
   try{ return localStorage.getItem(prefKey) === 'true'; }catch(e){ return false; }
@@ -1397,7 +1442,9 @@ function checkNotifyTime(){
   const d = new Date();
   const current = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   NOTIFY_DEFS.forEach(def => {
+    updateNotifyDoneUI(def); // 날짜가 바뀌면 완료표시가 자동으로 풀리도록 매 체크마다 갱신
     if(!getNotifyPref(def.prefKey)) return;
+    if(isDoneToday(def)) return; // 오늘 이미 완료 처리된 항목은 알림 건너뛰기
     if(def.times.includes(current) && lastFiredMinute[def.key] !== current){
       lastFiredMinute[def.key] = current;
       fireReportNotification(def);
@@ -1410,6 +1457,7 @@ NOTIFY_DEFS.forEach(def => {
   const initialPref = getNotifyPref(def.prefKey);
   toggle.checked = initialPref;
   updateNotifyStatusUI(def, initialPref);
+  updateNotifyDoneUI(def);
 
   toggle.addEventListener('change', async () => {
     if(toggle.checked){
@@ -1427,6 +1475,13 @@ NOTIFY_DEFS.forEach(def => {
       updateNotifyStatusUI(def, false);
       showToast('알림이 꺼졌습니다.');
     }
+  });
+
+  document.getElementById('notifyDoneBtn-' + def.key).addEventListener('click', () => {
+    if(isDoneToday(def)) return; // 이미 완료된 상태면 무시
+    markDoneToday(def);
+    updateNotifyDoneUI(def);
+    showToast(`${def.title} 완료 처리되었습니다. 오늘 남은 알림은 울리지 않아요.`);
   });
 });
 
