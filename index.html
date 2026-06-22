@@ -659,7 +659,7 @@
     font-size: 13px;
   }
   .event-item:last-child{ margin-bottom: 0; }
-  .event-item-title{ color: var(--charcoal); word-break: break-word; }
+  .event-item-title{ color: var(--charcoal); word-break: break-word; flex: 1; min-width: 0; }
 
   .placeholder-panel{
     background: var(--canvas);
@@ -989,6 +989,25 @@
       <div style="display:flex; justify-content:flex-end; gap:8px;">
         <button type="button" class="btn" id="cancelCancelTodo">닫기</button>
         <button type="submit" class="btn primary">취소 처리</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="alertTimeOverlay">
+  <div class="modal">
+    <h3>알림 시각 설정</h3>
+    <form id="alertTimeForm">
+      <input type="hidden" id="at-event-date">
+      <input type="hidden" id="at-event-title">
+      <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;" id="at-event-summary"></p>
+      <div class="field" style="margin-bottom:18px;">
+        <label for="at-time">몇 시에 알릴까요?</label>
+        <input type="time" id="at-time" required>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="cancelAlertTime">취소</button>
+        <button type="submit" class="btn primary">알림 등록</button>
       </div>
     </form>
   </div>
@@ -1964,7 +1983,10 @@ function renderEventList(dateStr){
   area.innerHTML = events.map(ev => `
     <div class="event-item" data-event-id="${ev.id}">
       <span class="event-item-title">${escapeHtml(ev.title)}</span>
-      <button class="btn small danger" data-action="delete-event" data-id="${ev.id}" data-date="${dateStr}">삭제</button>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="btn small" data-action="register-alert" data-id="${ev.id}" data-date="${dateStr}" data-title="${escapeHtml(ev.title)}">알림 등록</button>
+        <button class="btn small danger" data-action="delete-event" data-id="${ev.id}" data-date="${dateStr}">삭제</button>
+      </div>
     </div>
   `).join('');
 }
@@ -2013,6 +2035,11 @@ document.getElementById('eventForm').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('eventListArea').addEventListener('click', async (e) => {
+  const alertBtn = e.target.closest('button[data-action="register-alert"]');
+  if(alertBtn){
+    openAlertTimeModal(alertBtn.dataset.date, alertBtn.dataset.title);
+    return;
+  }
   const btn = e.target.closest('button[data-action="delete-event"]');
   if(!btn) return;
   const id = btn.dataset.id;
@@ -2033,6 +2060,49 @@ document.getElementById('eventListArea').addEventListener('click', async (e) => 
       showToast('삭제에 실패했습니다. 새로고침 후 다시 시도해주세요.');
     }
   }
+});
+
+function openAlertTimeModal(dateStr, title){
+  document.getElementById('at-event-date').value = dateStr;
+  document.getElementById('at-event-title').value = title;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  document.getElementById('at-event-summary').textContent = `"${title}" — ${y}년 ${m}월 ${d}일`;
+  document.getElementById('at-time').value = '';
+  document.getElementById('alertTimeOverlay').classList.add('show');
+}
+document.getElementById('cancelAlertTime').addEventListener('click', () => {
+  document.getElementById('alertTimeOverlay').classList.remove('show');
+});
+document.getElementById('alertTimeOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'alertTimeOverlay') document.getElementById('alertTimeOverlay').classList.remove('show');
+});
+document.getElementById('alertTimeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const dateStr = document.getElementById('at-event-date').value;
+  const title = document.getElementById('at-event-title').value;
+  const timeVal = document.getElementById('at-time').value; // 'HH:MM'
+  if(!timeVal){
+    showToast('시각을 입력해주세요.');
+    return;
+  }
+  const [hh, mm] = timeVal.split(':').map(Number);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const fireAt = new Date(y, m - 1, d, hh, mm, 0);
+
+  if(fireAt.getTime() <= Date.now()){
+    showToast('이미 지난 시각입니다.');
+    return;
+  }
+
+  todos.push({
+    id: genTodoId(), title, createdAt: new Date().toISOString(), fireAt: fireAt.toISOString(),
+    status: 'pending', cancelReason: '', createdBy: ''
+  });
+  renderActiveTodoCards();
+  if(document.getElementById('category-todos').style.display !== 'none') renderTodoHistory();
+  document.getElementById('alertTimeOverlay').classList.remove('show');
+  showToast('알림이 등록되었습니다.');
+  await saveTodos();
 });
 
 initGcalLogin();
