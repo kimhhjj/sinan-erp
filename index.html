@@ -582,6 +582,68 @@
 
   .loading{ text-align:center; padding: 32px; color: var(--smoke); font-size: 13px; }
 
+  /* ===== 안전관리 (Google Drive) ===== */
+  .drive-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .drive-breadcrumb{
+    font-size: 13px;
+    color: var(--smoke);
+    display:flex;
+    align-items:center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .drive-breadcrumb .crumb{
+    color: var(--violet);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .drive-breadcrumb .crumb:hover{ text-decoration: underline; }
+  .drive-breadcrumb .crumb.current{ color: var(--deep-charcoal); cursor: default; }
+  .drive-breadcrumb .crumb.current:hover{ text-decoration: none; }
+  .drive-toolbar-actions{
+    display:flex;
+    gap: 8px;
+    align-items:center;
+    flex-wrap: wrap;
+  }
+  .drive-toolbar-actions input[type=text]{
+    width: 180px;
+    padding: 8px 10px;
+  }
+  .drive-row{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    padding: 11px 10px;
+    border-bottom: 1px solid var(--ash);
+    cursor: pointer;
+  }
+  .drive-row:last-child{ border-bottom: none; }
+  .drive-row:hover{ background: var(--shadow-tint-blue); }
+  .drive-row-icon{ font-size: 18px; flex-shrink: 0; width: 22px; text-align: center; }
+  .drive-row-name{
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    color: var(--charcoal);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .drive-row-meta{ font-size: 11px; color: var(--smoke); flex-shrink: 0; }
+  .drive-row-actions{ display:flex; gap: 6px; flex-shrink: 0; }
+  #previewContent img{ max-width: 100%; border-radius: var(--radius-btn); display:block; }
+  #previewContent iframe{ width: 100%; height: 480px; border: 1px solid var(--ash); border-radius: var(--radius-btn); }
+  #previewContent .no-preview{ font-size: 13px; color: var(--smoke); text-align:center; padding: 30px 0; }
+
   /* ===== 캘린더 (홈) ===== */
   .cal-header{
     display:flex;
@@ -722,6 +784,9 @@
     .cal-day-event-preview{ font-size: 9px; padding: 1px 4px; }
     .cal-day-num{ font-size: 11px; }
     .event-form{ flex-direction: column; }
+    .drive-toolbar-actions{ width: 100%; }
+    .drive-toolbar-actions input[type=text]{ width: 100%; }
+    .drive-row-meta{ display:none; }
   }
 </style>
 </head>
@@ -776,6 +841,7 @@
       <button class="nav-item active" data-category="home">홈</button>
       <button class="nav-item" data-category="accident">사고근태방</button>
       <button class="nav-item" data-category="prevention">재발방지대책<span class="badge">준비중</span></button>
+      <button class="nav-item" data-category="safety">안전관리</button>
       <button class="nav-item" data-category="todos">알림내역</button>
     </nav>
   </aside>
@@ -906,6 +972,34 @@
         </div>
       </div>
 
+      <!-- ===== 안전관리 카테고리 ===== -->
+      <div id="category-safety" style="display:none;">
+        <div class="page-header">
+          <h1>안전관리</h1>
+        </div>
+
+        <div id="driveLoginGate" class="panel" style="text-align:center; padding:40px 24px;">
+          <p style="font-weight:700; font-size:15px; margin-bottom:8px; color:var(--deep-charcoal);">구글 드라이브 연결이 필요합니다</p>
+          <p style="font-size:13px; color:var(--smoke); margin-bottom:18px;">파일을 보고 업로드하려면 구글 계정으로 로그인해주세요.</p>
+          <button class="btn primary" id="driveLoginBtn">구글 계정으로 로그인</button>
+        </div>
+
+        <div id="driveApp" style="display:none;">
+          <div class="panel">
+            <div class="drive-toolbar">
+              <div class="drive-breadcrumb" id="driveBreadcrumb"></div>
+              <div class="drive-toolbar-actions">
+                <input type="text" id="driveSearchInput" placeholder="파일명 검색">
+                <button class="btn small" id="driveNewFolderBtn">+ 새 폴더</button>
+                <button class="btn small primary" id="driveUploadBtn">파일 업로드</button>
+                <input type="file" id="driveFileInput" multiple style="display:none;">
+              </div>
+            </div>
+            <div id="driveListArea"><div class="loading">불러오는 중...</div></div>
+          </div>
+        </div>
+      </div>
+
       <!-- ===== 알림내역 카테고리 ===== -->
       <div id="category-todos" style="display:none;">
         <div class="page-header">
@@ -1030,6 +1124,33 @@
         <button type="submit" class="btn primary">알림 등록</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newFolderOverlay">
+  <div class="modal">
+    <h3>새 폴더 만들기</h3>
+    <form id="newFolderForm">
+      <div class="field" style="margin-bottom:18px;">
+        <label for="nf-name">폴더 이름</label>
+        <input type="text" id="nf-name" placeholder="예) 눈관리" required maxlength="100">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="cancelNewFolder">취소</button>
+        <button type="submit" class="btn primary">만들기</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="filePreviewOverlay">
+  <div class="modal" style="max-width:720px;">
+    <h3 id="previewFileName" style="word-break:break-word;"></h3>
+    <div id="previewContent" style="margin-bottom:18px;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="closePreview">닫기</button>
+      <a class="btn primary" id="previewDownloadBtn" download>다운로드</a>
+    </div>
   </div>
 </div>
 
@@ -1207,6 +1328,7 @@ function switchCategory(name){
   document.getElementById('category-accident').style.display = name === 'accident' ? '' : 'none';
   document.getElementById('category-todos').style.display = name === 'todos' ? '' : 'none';
   document.getElementById('category-prevention').style.display = name === 'prevention' ? '' : 'none';
+  document.getElementById('category-safety').style.display = name === 'safety' ? '' : 'none';
   if(name === 'todos') renderTodoHistory();
 }
 
@@ -1892,6 +2014,8 @@ function initGcalLogin(){
         saveGcalToken(resp.access_token, resp.expires_in || 3500);
         showCalendarApp();
         loadMonthEvents();
+        showDriveApp();
+        loadDriveFolder(driveRootFolderId, true);
       }else{
         showToast('구글 로그인에 실패했습니다.');
       }
@@ -1901,6 +2025,8 @@ function initGcalLogin(){
   if(tryRestoreGcalToken()){
     showCalendarApp();
     loadMonthEvents();
+    showDriveApp();
+    loadDriveFolder(driveRootFolderId, true);
   }
 }
 
@@ -1912,10 +2038,28 @@ document.getElementById('calendarLoginBtn').addEventListener('click', () => {
   }
 });
 
+document.getElementById('driveLoginBtn').addEventListener('click', () => {
+  if(gcalTokenClient){
+    gcalTokenClient.requestAccessToken();
+  }else{
+    showToast('구글 로그인 준비 중입니다. 잠시 후 다시 시도해주세요.');
+  }
+});
+
 function showCalendarApp(){
   document.getElementById('calendarLoginGate').style.display = 'none';
   document.getElementById('calendarApp').style.display = '';
   renderCalendarGrid();
+}
+
+function handleGcalUnauthorized(){
+  gcalAccessToken = null;
+  try{ localStorage.removeItem(GCAL_TOKEN_STORAGE_KEY); }catch(e){}
+  document.getElementById('calendarLoginGate').style.display = '';
+  document.getElementById('calendarApp').style.display = 'none';
+  document.getElementById('driveLoginGate').style.display = '';
+  document.getElementById('driveApp').style.display = 'none';
+  showToast('로그인이 만료되었습니다. 다시 로그인해주세요.');
 }
 
 async function gcalApiFetch(path, options = {}){
@@ -1930,15 +2074,28 @@ async function gcalApiFetch(path, options = {}){
     }
   });
   if(res.status === 401){
-    // 토큰 만료 - 재로그인 유도
-    gcalAccessToken = null;
-    try{ localStorage.removeItem(GCAL_TOKEN_STORAGE_KEY); }catch(e){}
-    document.getElementById('calendarLoginGate').style.display = '';
-    document.getElementById('calendarApp').style.display = 'none';
-    showToast('로그인이 만료되었습니다. 다시 로그인해주세요.');
+    handleGcalUnauthorized();
     throw new Error('unauthorized');
   }
   return res.json();
+}
+
+async function driveApiFetch(path, options = {}, baseUrl = 'https://www.googleapis.com/drive/v3'){
+  if(!gcalAccessToken) throw new Error('not logged in');
+  const url = `${baseUrl}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      'Authorization': 'Bearer ' + gcalAccessToken,
+      ...(options.headers && options.headers['Content-Type'] === null ? {} : { 'Content-Type': (options.headers && options.headers['Content-Type']) || 'application/json' })
+    }
+  });
+  if(res.status === 401){
+    handleGcalUnauthorized();
+    throw new Error('unauthorized');
+  }
+  return res;
 }
 
 async function loadMonthEvents(){
@@ -2161,6 +2318,301 @@ document.getElementById('alertTimeForm').addEventListener('submit', async (e) =>
 });
 
 initGcalLogin();
+
+/* ===== 안전관리 (Google Drive 연동) ===== */
+const DRIVE_ROOT_FOLDER_ID = '1CDrNDewNkzIdrgwcawNb7Ge-R6i7Yfn8'; // "안전관리" 폴더
+let driveRootFolderId = DRIVE_ROOT_FOLDER_ID;
+let drivePathStack = [{ id: DRIVE_ROOT_FOLDER_ID, name: '안전관리' }]; // breadcrumb 경로
+let driveCurrentItems = []; // 현재 폴더의 파일/폴더 목록
+let driveSearchMode = false;
+let driveSearchTimer = null;
+
+function showDriveApp(){
+  document.getElementById('driveLoginGate').style.display = 'none';
+  document.getElementById('driveApp').style.display = '';
+}
+
+function renderDriveBreadcrumb(){
+  const el = document.getElementById('driveBreadcrumb');
+  el.innerHTML = drivePathStack.map((p, i) => {
+    const isLast = i === drivePathStack.length - 1;
+    return `<span class="crumb ${isLast ? 'current' : ''}" data-idx="${i}">${escapeHtml(p.name)}</span>${isLast ? '' : ' / '}`;
+  }).join('');
+}
+
+document.getElementById('driveBreadcrumb').addEventListener('click', (e) => {
+  const crumb = e.target.closest('.crumb');
+  if(!crumb || crumb.classList.contains('current')) return;
+  const idx = parseInt(crumb.dataset.idx, 10);
+  drivePathStack = drivePathStack.slice(0, idx + 1);
+  driveSearchMode = false;
+  document.getElementById('driveSearchInput').value = '';
+  loadDriveFolder(drivePathStack[drivePathStack.length - 1].id, false);
+});
+
+function driveFileIcon(mimeType){
+  if(mimeType === 'application/vnd.google-apps.folder') return '📁';
+  if(mimeType === 'application/pdf') return '📕';
+  if(mimeType && mimeType.startsWith('image/')) return '🖼️';
+  if(mimeType && (mimeType.includes('word') || mimeType.includes('document'))) return '📄';
+  if(mimeType && (mimeType.includes('sheet') || mimeType.includes('excel'))) return '📊';
+  return '📄';
+}
+
+function driveCanPreview(mimeType){
+  return mimeType === 'application/pdf' || (mimeType && mimeType.startsWith('image/'));
+}
+
+function formatDriveSize(bytes){
+  if(!bytes) return '';
+  const n = parseInt(bytes, 10);
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return Math.round(n/1024) + ' KB';
+  return (n/(1024*1024)).toFixed(1) + ' MB';
+}
+
+async function loadDriveFolder(folderId, resetPath){
+  document.getElementById('driveListArea').innerHTML = '<div class="loading">불러오는 중...</div>';
+  try{
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+    const fields = encodeURIComponent('files(id,name,mimeType,size,modifiedTime,webContentLink)');
+    const res = await driveApiFetch(`/files?q=${q}&fields=${fields}&orderBy=folder,name`);
+    const data = await res.json();
+    driveCurrentItems = data.files || [];
+    renderDriveBreadcrumb();
+    renderDriveList();
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      document.getElementById('driveListArea').innerHTML = '<div class="empty">목록을 불러오지 못했습니다.</div>';
+    }
+  }
+}
+
+function renderDriveList(){
+  const area = document.getElementById('driveListArea');
+  if(driveCurrentItems.length === 0){
+    area.innerHTML = `<div class="empty">${driveSearchMode ? '검색 결과가 없습니다.' : '비어있는 폴더입니다.'}</div>`;
+    return;
+  }
+  area.innerHTML = driveCurrentItems.map(item => {
+    const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
+    const meta = isFolder ? '폴더' : formatDriveSize(item.size);
+    return `<div class="drive-row" data-id="${item.id}" data-mime="${item.mimeType}" data-name="${escapeHtml(item.name)}" data-is-folder="${isFolder}">
+      <span class="drive-row-icon">${driveFileIcon(item.mimeType)}</span>
+      <span class="drive-row-name">${escapeHtml(item.name)}</span>
+      <span class="drive-row-meta">${meta}</span>
+      <div class="drive-row-actions">
+        ${!isFolder ? `<button class="btn small" data-action="drive-download" data-id="${item.id}" data-name="${escapeHtml(item.name)}">다운로드</button>` : ''}
+        <button class="btn small danger" data-action="drive-delete" data-id="${item.id}" data-name="${escapeHtml(item.name)}">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('driveListArea').addEventListener('click', async (e) => {
+  const actionBtn = e.target.closest('button[data-action]');
+  if(actionBtn){
+    const id = actionBtn.dataset.id;
+    const name = actionBtn.dataset.name;
+    if(actionBtn.dataset.action === 'drive-download'){
+      await driveDownloadFile(id, name);
+    }else if(actionBtn.dataset.action === 'drive-delete'){
+      if(confirm(`"${name}"을(를) 삭제할까요?`)){
+        await driveDeleteItem(id);
+      }
+    }
+    return;
+  }
+  const row = e.target.closest('.drive-row');
+  if(!row) return;
+  const isFolder = row.dataset.isFolder === 'true';
+  const id = row.dataset.id;
+  const name = row.dataset.name;
+  const mime = row.dataset.mime;
+  if(isFolder){
+    drivePathStack.push({ id, name });
+    driveSearchMode = false;
+    document.getElementById('driveSearchInput').value = '';
+    loadDriveFolder(id, false);
+  }else{
+    openFilePreview(id, name, mime);
+  }
+});
+
+async function driveDownloadFile(id, name){
+  try{
+    const res = await driveApiFetch(`/files/${id}?alt=media`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      showToast('다운로드에 실패했습니다.');
+    }
+  }
+}
+
+async function driveDeleteItem(id){
+  driveCurrentItems = driveCurrentItems.filter(x => x.id !== id);
+  renderDriveList();
+  try{
+    await driveApiFetch(`/files/${id}`, { method: 'DELETE' });
+    showToast('삭제되었습니다.');
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      showToast('삭제에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+    }
+  }
+}
+
+async function openFilePreview(id, name, mime){
+  document.getElementById('previewFileName').textContent = name;
+  const content = document.getElementById('previewContent');
+  const downloadBtn = document.getElementById('previewDownloadBtn');
+  downloadBtn.onclick = (e) => { e.preventDefault(); driveDownloadFile(id, name); };
+
+  if(!driveCanPreview(mime)){
+    content.innerHTML = '<div class="no-preview">이 파일 형식은 미리보기를 지원하지 않습니다. 다운로드해서 확인해주세요.</div>';
+    document.getElementById('filePreviewOverlay').classList.add('show');
+    return;
+  }
+
+  content.innerHTML = '<div class="loading">불러오는 중...</div>';
+  document.getElementById('filePreviewOverlay').classList.add('show');
+  try{
+    const res = await driveApiFetch(`/files/${id}?alt=media`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if(mime.startsWith('image/')){
+      content.innerHTML = `<img src="${url}" alt="${escapeHtml(name)}">`;
+    }else if(mime === 'application/pdf'){
+      content.innerHTML = `<iframe src="${url}"></iframe>`;
+    }
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      content.innerHTML = '<div class="no-preview">미리보기를 불러오지 못했습니다.</div>';
+    }
+  }
+}
+
+document.getElementById('closePreview').addEventListener('click', () => {
+  document.getElementById('filePreviewOverlay').classList.remove('show');
+});
+document.getElementById('filePreviewOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'filePreviewOverlay') document.getElementById('filePreviewOverlay').classList.remove('show');
+});
+
+// 새 폴더 만들기
+document.getElementById('driveNewFolderBtn').addEventListener('click', () => {
+  document.getElementById('nf-name').value = '';
+  document.getElementById('newFolderOverlay').classList.add('show');
+});
+document.getElementById('cancelNewFolder').addEventListener('click', () => {
+  document.getElementById('newFolderOverlay').classList.remove('show');
+});
+document.getElementById('newFolderOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'newFolderOverlay') document.getElementById('newFolderOverlay').classList.remove('show');
+});
+document.getElementById('newFolderForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('nf-name').value.trim();
+  if(!name) return;
+  const currentFolderId = drivePathStack[drivePathStack.length - 1].id;
+
+  document.getElementById('newFolderOverlay').classList.remove('show');
+  showToast('폴더를 만드는 중...');
+  try{
+    const res = await driveApiFetch('/files', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [currentFolderId]
+      })
+    });
+    await res.json();
+    showToast('폴더가 생성되었습니다.');
+    loadDriveFolder(currentFolderId, false);
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      showToast('폴더 생성에 실패했습니다.');
+    }
+  }
+});
+
+// 파일 업로드
+document.getElementById('driveUploadBtn').addEventListener('click', () => {
+  document.getElementById('driveFileInput').click();
+});
+document.getElementById('driveFileInput').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if(files.length === 0) return;
+  const currentFolderId = drivePathStack[drivePathStack.length - 1].id;
+  showToast(`${files.length}개 파일 업로드 중...`);
+
+  for(const file of files){
+    try{
+      const metadata = { name: file.name, parents: [currentFolderId] };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', file);
+
+      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + gcalAccessToken },
+        body: form
+      });
+      if(res.status === 401){
+        handleGcalUnauthorized();
+        return;
+      }
+    }catch(err){
+      showToast(`"${file.name}" 업로드에 실패했습니다.`);
+    }
+  }
+  showToast('업로드가 완료되었습니다.');
+  e.target.value = '';
+  loadDriveFolder(currentFolderId, false);
+});
+
+// 파일명 검색 (현재 폴더 트리 전체가 아닌, 드라이브 내 전체 검색 - 폴더 포함)
+document.getElementById('driveSearchInput').addEventListener('input', (e) => {
+  clearTimeout(driveSearchTimer);
+  const keyword = e.target.value.trim();
+  driveSearchTimer = setTimeout(() => {
+    if(!keyword){
+      driveSearchMode = false;
+      loadDriveFolder(drivePathStack[drivePathStack.length - 1].id, false);
+      return;
+    }
+    driveSearch(keyword);
+  }, 400);
+});
+
+async function driveSearch(keyword){
+  driveSearchMode = true;
+  document.getElementById('driveListArea').innerHTML = '<div class="loading">검색 중...</div>';
+  try{
+    const safeKeyword = keyword.replace(/'/g, "\\'");
+    const q = encodeURIComponent(`name contains '${safeKeyword}' and trashed = false`);
+    const fields = encodeURIComponent('files(id,name,mimeType,size,modifiedTime)');
+    const res = await driveApiFetch(`/files?q=${q}&fields=${fields}&orderBy=folder,name`);
+    const data = await res.json();
+    driveCurrentItems = data.files || [];
+    renderDriveList();
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      document.getElementById('driveListArea').innerHTML = '<div class="empty">검색에 실패했습니다.</div>';
+    }
+  }
+}
+
 
 
 </script>
