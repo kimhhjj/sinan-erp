@@ -608,10 +608,19 @@
   }
   .att-date-display:hover{ box-shadow: var(--shadow-hover); }
   #attNameSearch{ width: 220px; }
-  table.att-table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.att-table{ width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
   table.att-table th, table.att-table td{
     padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--ash); vertical-align: middle;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  table.att-table th:nth-child(1), table.att-table td:nth-child(1){ width: 14%; }
+  table.att-table th:nth-child(2), table.att-table td:nth-child(2){ width: 13%; }
+  table.att-table th:nth-child(3), table.att-table td:nth-child(3){ width: 13%; }
+  table.att-table th:nth-child(4), table.att-table td:nth-child(4){ width: 13%; }
+  table.att-table th:nth-child(5), table.att-table td:nth-child(5){ width: 13%; }
+  table.att-table th:nth-child(6), table.att-table td:nth-child(6){ width: 13%; }
+  table.att-table th:nth-child(7), table.att-table td:nth-child(7){ width: 21%; }
+  table.att-table .att-status-pill{ max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
   table.att-table th{
     font-size: 11px; color: var(--smoke); text-transform: uppercase;
     letter-spacing: 0.4px; font-weight: 700; font-family: var(--font-display);
