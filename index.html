@@ -446,6 +446,8 @@
     gap: 6px;
   }
   .btn:hover{ box-shadow: var(--shadow-hover); }
+  .btn:disabled{ opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+  .btn:disabled:hover{ box-shadow: none; }
   .btn.primary{ background: var(--onyx); color: #fff; border-color: var(--onyx); }
   .btn.primary:hover{ background: #2e2e31; }
   .btn.danger{ color: var(--no); border-color: var(--no-bg); background: var(--no-bg); }
@@ -1059,8 +1061,11 @@
       <div id="category-attendance" style="display:none;">
         <div class="page-header">
           <h1>출퇴근관리</h1>
-          <input type="file" id="attFileInput" accept=".txt" style="display:none;">
-          <button class="btn primary" id="attUploadBtn">+ 대화내용(txt) 업로드</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn danger" id="attClearAllBtn">전체 삭제</button>
+            <input type="file" id="attFileInput" accept=".txt" style="display:none;">
+            <button class="btn primary" id="attUploadBtn">+ 대화내용(txt) 업로드</button>
+          </div>
         </div>
 
         <div class="panel" style="margin-bottom:20px;">
@@ -1428,6 +1433,23 @@
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelNewNameConfirm">취소</button>
       <button type="button" class="btn primary" id="confirmNewNameBtn">반영하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attClearAllOverlay">
+  <div class="modal" style="max-width:440px;">
+    <h3>출퇴근 기록 전체 삭제</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">
+      모든 날짜의 출퇴근 기록과 직원 명단이 <b style="color:var(--no);">완전히 삭제</b>됩니다. 이 작업은 되돌릴 수 없습니다.
+    </p>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="att-clear-confirm-input">계속하려면 아래 칸에 <b>삭제</b>라고 입력해주세요</label>
+      <input type="text" id="att-clear-confirm-input" placeholder="삭제">
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelAttClearAll">취소</button>
+      <button type="button" class="btn danger" id="confirmAttClearAll" disabled>완전히 삭제</button>
     </div>
   </div>
 </div>
@@ -3102,6 +3124,51 @@ async function saveEmployees(){
   }
 }
 
+/* ---- 출퇴근 기록 전체 삭제 (안전장치: '삭제' 직접 입력해야 활성화) ---- */
+document.getElementById('attClearAllBtn').addEventListener('click', () => {
+  document.getElementById('att-clear-confirm-input').value = '';
+  document.getElementById('confirmAttClearAll').disabled = true;
+  document.getElementById('attClearAllOverlay').classList.add('show');
+});
+document.getElementById('cancelAttClearAll').addEventListener('click', () => {
+  document.getElementById('attClearAllOverlay').classList.remove('show');
+});
+document.getElementById('attClearAllOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attClearAllOverlay') document.getElementById('attClearAllOverlay').classList.remove('show');
+});
+document.getElementById('att-clear-confirm-input').addEventListener('input', (e) => {
+  document.getElementById('confirmAttClearAll').disabled = (e.target.value.trim() !== '삭제');
+});
+document.getElementById('confirmAttClearAll').addEventListener('click', async () => {
+  if(document.getElementById('att-clear-confirm-input').value.trim() !== '삭제') return;
+
+  // 화면(로컬 캐시) 먼저 깨끗하게 비우기
+  attRecords = [];
+  attEmployees = [];
+  renderAttTable();
+  renderAttReviewPanel();
+  document.getElementById('attSearchResultPanel').style.display = 'none';
+  document.getElementById('attNameSearch').value = '';
+  document.getElementById('attClearAllOverlay').classList.remove('show');
+  showToast('출퇴근 기록을 삭제하는 중...');
+
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'clearAll' })
+    });
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: [] })
+    });
+    showToast('출퇴근 기록이 모두 삭제되었습니다.');
+  }catch(e){
+    showToast('삭제 요청이 실패했습니다. 새로고침 후 다시 시도해주세요.');
+  }
+});
+
 function ensureEmployeeExists(name, dateStr){
   if(!attEmployees.find(e => e.name === name)){
     attEmployees.push({ name: name, firstSeenDate: dateStr, active: 'true' });
@@ -3126,6 +3193,17 @@ const ATT_CUTOFF_DATE = '2026-06-24';
 
 // 단체 명단 메시지의 한 줄: "1.이름" "1. 이름 관리" "1.이름-휴무" "1.이름(복층055)" "1.이름_휴무" 등
 const ATT_ROSTER_LINE_RE = /^(\d{1,3})[.\)]\s*([가-힣]{2,4})\s*[-_]?\s*(관리|휴무|퇴사|연장|주간|야간)?\s*(\([^)]*\))?\s*$/;
+
+// "오전 7:50" / "오후 4:10" 같은 카톡 시각 표기를 24시간제 "07:50" / "16:10"으로 변환
+function toHHMM(ampm, hmRaw){
+  const m = (hmRaw || '').match(/(\d{1,2}):(\d{2})/);
+  if(!m) return '';
+  let hh = parseInt(m[1], 10);
+  const mm = m[2];
+  if(ampm === '오후' && hh < 12) hh += 12;
+  if(ampm === '오전' && hh === 12) hh = 0;
+  return `${pad(hh)}:${mm}`;
+}
 
 // 메시지 한 통(여러 줄 가능)을 분리해서 { date, sender, time, body(전체 텍스트) } 배열로 만든다
 function splitIntoMessages(text){
@@ -3153,7 +3231,7 @@ function splitIntoMessages(text){
       current = {
         date: currentDate,
         sender: startMatch[1].trim(),
-        time: ((startMatch[2]||'') + ' ' + (startMatch[3]||'')).trim(),
+        time: toHHMM(startMatch[2], startMatch[3]),
         lines: [startMatch[4].trim()]
       };
     }else if(current && line){
