@@ -676,6 +676,14 @@
   }
   .att-history-item:last-child{ border-bottom: none; }
   .att-history-date{ font-family: var(--font-display); font-weight: 700; color: var(--charcoal); width: 110px; flex-shrink: 0; }
+  .att-history-name{ font-weight: 700; color: var(--violet); flex-shrink: 0; }
+  .att-history-clickable{ cursor: pointer; border-radius: var(--radius-btn); transition: background 0.15s; }
+  .att-history-clickable:hover{ background: var(--shadow-tint-blue); }
+  @keyframes attRowFlash{
+    0%, 100%{ background: transparent; }
+    20%, 80%{ background: rgba(123,104,238,0.18); }
+  }
+  .att-row-flash{ animation: attRowFlash 2.2s ease; }
   .new-name-row{
     display:flex;
     align-items:center;
@@ -3188,13 +3196,17 @@ function parseKakaoAttendance(text){
       rosterEntries.forEach(entry => {
         if(entry.tag === '퇴사') return; // 퇴사자는 제외
         const type = (entry.tag === '휴무') ? 'leave' : 'checkIn';
+        // 태그가 명확하면(없음/관리/휴무/연장/주간/야간 중 하나) 확정 처리.
+        // 그 외 애매한 경우만 검토 필요로 표시.
+        const knownTags = ['', '관리', '휴무', '연장', '주간', '야간'];
+        const isClearTag = knownTags.includes(entry.tag);
         results.push({
           date: msg.date,
           name: entry.name,
           type: type,
           time: msg.time,
           rawText: `[단체명단:${msg.sender}] ${entry.name}${entry.tag ? '-' + entry.tag : ''}`,
-          needsReview: true // 단체 명단으로 처리된 항목은 항상 검토 필요로 표시
+          needsReview: !isClearTag
         });
       });
       return; // 단체 명단으로 처리했으면 아래의 개인 보고 로직은 건너뜀
@@ -3240,6 +3252,13 @@ function buildAttendanceRecordsForDate(dateStr, parsedForDate){
     // 검토 시 참고할 수 있도록, 그날 이 사람이 보낸 출퇴근 관련 메시지를 전부 누적해서 저장
     const tagged = `[${p.time || '시각미상'}] ${p.rawText}`;
     rec.rawText = rec.rawText ? (rec.rawText + ' || ' + tagged) : tagged;
+  });
+  // 출근/휴무가 동시에 찍힌 경우(서로 다른 메시지에서 상반된 정보가 들어온 경우)는
+  // 자동으로 어느 쪽이 맞는지 판단할 수 없으므로 검토 필요로 전환
+  Object.values(byName).forEach(rec => {
+    if(rec.checkIn && rec.leave){
+      rec.status = 'needs_review';
+    }
   });
   return Object.values(byName);
 }
@@ -3493,9 +3512,19 @@ function renderAttTable(){
       return;
     }
     const needsReview = r.status === 'needs_review';
+    const hasConflict = needsReview && r.checkIn && r.leave;
     const noteCell = needsReview
       ? `<span class="att-needs-review" data-action="att-review-cell" data-date="${r.date}" data-name="${escapeHtml(name)}">검토 필요</span>`
       : '<span class="sub">-</span>';
+    if(hasConflict){
+      // 출근/휴무가 충돌하는 상태에서는 둘 다 보여주지 않고, 확정 전임을 명확히 표시
+      html += `<tr>
+        <td class="att-row-name">${escapeHtml(name)}</td>
+        <td colspan="5">${statusPillHtml('확정 대기 (출근·휴무 정보 충돌)', 'unknown')}</td>
+        <td>${noteCell}</td>
+      </tr>`;
+      return;
+    }
     html += `<tr>
       <td class="att-row-name">${escapeHtml(name)}</td>
       <td>${statusPillHtml(r.checkIn, 'in')}</td>
@@ -3577,11 +3606,20 @@ document.getElementById('confirmAttReviewDecide').addEventListener('click', asyn
   const rec = attRecords.find(r => r.date === date && r.name === name);
   if(!rec){ document.getElementById('attReviewDecideOverlay').classList.remove('show'); return; }
 
-  const patch = { status: 'confirmed', reviewDecision: decision };
-  if(decision === 'checkIn') patch.checkIn = '출근완료';
-  if(decision === 'checkOut') patch.checkOut = '퇴근완료';
-  if(decision === 'leave') patch.leave = '휴무';
-  if(decision === 'ignore'){ patch.checkIn = rec.checkIn; patch.checkOut = rec.checkOut; patch.leave = rec.leave; }
+  // 확정한 상태 하나만 남기고, 충돌을 일으킨 다른 필드는 비운다 (출근/퇴근/휴무 중 하나로 명확히 정리)
+  const patch = {
+    status: 'confirmed',
+    reviewDecision: decision,
+    checkIn: decision === 'checkIn' ? '출근완료' : '',
+    checkInTime: decision === 'checkIn' ? rec.checkInTime : '',
+    checkOut: decision === 'checkOut' ? '퇴근완료' : '',
+    checkOutTime: decision === 'checkOut' ? rec.checkOutTime : '',
+    leave: decision === 'leave' ? '휴무' : ''
+  };
+  if(decision === 'ignore'){
+    // 무시: 이 기록 자체를 출퇴근과 무관한 것으로 처리 (모두 비움, 검토 상태만 해제)
+    patch.checkIn = ''; patch.checkInTime = ''; patch.checkOut = ''; patch.checkOutTime = ''; patch.leave = '';
+  }
 
   Object.assign(rec, patch);
   renderAttTable();
@@ -3621,18 +3659,45 @@ function renderAttSearchResult(keyword){
     if(r.checkOut) parts.push(`퇴근 ${r.checkOut}`);
     if(r.leave) parts.push(r.leave);
     if(parts.length === 0) parts.push('기록 없음');
-    return `<div class="att-history-item">
+    return `<div class="att-history-item att-history-clickable" data-action="att-goto-date" data-date="${escapeHtml(r.date)}" data-name="${escapeHtml(r.name)}">
       <span class="att-history-date">${escapeHtml(r.date)}</span>
+      <span class="att-history-name">${escapeHtml(r.name)}</span>
       <span>${escapeHtml(parts.join(' · '))}</span>
       ${r.status === 'needs_review' ? '<span class="att-needs-review" data-action="att-review-cell" data-date="'+escapeHtml(r.date)+'" data-name="'+escapeHtml(r.name)+'">검토 필요</span>' : ''}
     </div>`;
   }).join('');
 }
 document.getElementById('attSearchResultArea').addEventListener('click', (e) => {
-  const el = e.target.closest('[data-action="att-review-cell"]');
-  if(!el) return;
-  openAttReviewDecide(el.dataset.date, el.dataset.name);
+  const reviewEl = e.target.closest('[data-action="att-review-cell"]');
+  if(reviewEl){
+    openAttReviewDecide(reviewEl.dataset.date, reviewEl.dataset.name);
+    return;
+  }
+  const gotoEl = e.target.closest('[data-action="att-goto-date"]');
+  if(gotoEl){
+    gotoAttDateAndHighlight(gotoEl.dataset.date, gotoEl.dataset.name);
+  }
 });
+
+function gotoAttDateAndHighlight(dateStr, name){
+  attCurrentDate = dateStr;
+  renderAttDateDisplay();
+  renderAttTable();
+  // 표 영역으로 스크롤 이동 후, 해당 이름의 행을 잠깐 강조
+  setTimeout(() => {
+    const rows = document.querySelectorAll('#attTableArea tbody tr');
+    let targetRow = null;
+    rows.forEach(row => {
+      const nameCell = row.querySelector('.att-row-name');
+      if(nameCell && nameCell.textContent === name) targetRow = row;
+    });
+    if(targetRow){
+      targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetRow.classList.add('att-row-flash');
+      setTimeout(() => targetRow.classList.remove('att-row-flash'), 2200);
+    }
+  }, 50);
+}
 
 
 
