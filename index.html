@@ -3095,7 +3095,7 @@ function ensureEmployeeExists(name, dateStr){
 
 /* ---- 카톡 txt 파싱 ---- */
 const ATT_DATE_LINE_RE = /^-+\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
-const ATT_MSG_LINE_RE = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*([\d:]+)\]\s*(.*)$/;
+const ATT_MSG_START_RE = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*([\d:]+)\]\s*(.*)$/;
 
 const ATT_IGNORE_KEYWORDS = ['출문보고', '입문보고', '교육공지', '안전교육', '공지', '점검'];
 const ATT_CHECKIN_KEYWORDS = ['출근', '츨근', '줄근', '출퐌', '출그ㄴ'];
@@ -3107,61 +3107,122 @@ const ATT_AMBIGUOUS_KEYWORDS = ['조퇴', '???', '검토', 'ino오류', '오류'
 // 이 날짜부터의 기록만 반영 (그 이전 데이터는 무시)
 const ATT_CUTOFF_DATE = '2026-06-24';
 
-function parseKakaoAttendance(text){
+// 단체 명단 메시지의 한 줄: "1.이름" "1. 이름 관리" "1.이름-휴무" "1.이름(복층055)" "1.이름_휴무" 등
+const ATT_ROSTER_LINE_RE = /^(\d{1,3})[.\)]\s*([가-힣]{2,4})\s*[-_]?\s*(관리|휴무|퇴사|연장|주간|야간)?\s*(\([^)]*\))?\s*$/;
+
+// 메시지 한 통(여러 줄 가능)을 분리해서 { date, sender, time, body(전체 텍스트) } 배열로 만든다
+function splitIntoMessages(text){
   const lines = text.split(/\r?\n/);
   let currentDate = null;
-  const results = []; // { date, name, type: 'checkIn'|'checkOut'|'leave', time, rawText, needsReview }
+  const messages = [];
+  let current = null;
 
   for(let i = 0; i < lines.length; i++){
-    const line = lines[i].trim();
-    if(!line) continue;
+    const rawLine = lines[i];
+    const line = rawLine.trim();
 
     const dateMatch = line.match(ATT_DATE_LINE_RE);
     if(dateMatch){
+      if(current) messages.push(current);
+      current = null;
       const y = dateMatch[1], m = pad(parseInt(dateMatch[2],10)), d = pad(parseInt(dateMatch[3],10));
       currentDate = `${y}-${m}-${d}`;
       continue;
     }
 
-    if(!currentDate || currentDate < ATT_CUTOFF_DATE) continue;
+    const startMatch = line.match(ATT_MSG_START_RE);
+    if(startMatch){
+      if(current) messages.push(current);
+      current = {
+        date: currentDate,
+        sender: startMatch[1].trim(),
+        time: ((startMatch[2]||'') + ' ' + (startMatch[3]||'')).trim(),
+        lines: [startMatch[4].trim()]
+      };
+    }else if(current && line){
+      // 같은 메시지의 다음 줄 (멀티라인 메시지)
+      current.lines.push(line);
+    }
+  }
+  if(current) messages.push(current);
 
-    const msgMatch = line.match(ATT_MSG_LINE_RE);
-    if(!msgMatch) continue;
+  return messages.map(m => ({
+    date: m.date,
+    sender: m.sender,
+    time: m.time,
+    body: m.lines.join('\n')
+  }));
+}
 
-    const senderName = msgMatch[1].trim();
-    const ampm = msgMatch[2] || '';
-    const timeRaw = msgMatch[3] || '';
-    const timeLabel = (ampm + ' ' + timeRaw).trim();
-    const body = msgMatch[4].trim();
-    if(!body) continue;
-    if(ATT_IGNORE_KEYWORDS.some(k => body.includes(k))) continue;
+// 메시지 본문이 "번호. 이름 ..." 형태의 줄을 3개 이상 포함하면 단체 명단으로 판단
+function extractRosterEntries(body){
+  const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+  lines.forEach(line => {
+    const m = line.match(ATT_ROSTER_LINE_RE);
+    if(m){
+      entries.push({ name: m[2], tag: m[3] || '' });
+    }
+  });
+  return entries;
+}
 
-    const isAmbiguous = ATT_AMBIGUOUS_KEYWORDS.some(k => body.includes(k));
+function parseKakaoAttendance(text){
+  const messages = splitIntoMessages(text);
+  const results = []; // { date, name, type: 'checkIn'|'checkOut'|'leave', time, rawText, needsReview }
+
+  messages.forEach(msg => {
+    if(!msg.date || msg.date < ATT_CUTOFF_DATE) return;
+    const body = msg.body;
+    if(!body) return;
+    if(ATT_IGNORE_KEYWORDS.some(k => body.includes(k))) return;
+
     const hasCheckIn = ATT_CHECKIN_KEYWORDS.some(k => body.includes(k));
     const hasCheckOut = ATT_CHECKOUT_KEYWORDS.some(k => body.includes(k));
     const hasLeave = ATT_LEAVE_KEYWORDS.some(k => body.includes(k));
-    if(!hasCheckIn && !hasCheckOut && !hasLeave) continue;
 
-    // [보낸사람]이 곧 그 메시지를 보낸 사람의 이름 (카톡방 규칙: 본인이 본인 이름으로 출근/퇴근 보고)
+    // ---- 1) 단체 명단 메시지인지 먼저 확인 ----
+    const rosterEntries = extractRosterEntries(body);
+    if(rosterEntries.length >= 3){
+      // 퇴근은 이번 범위에서 다루지 않음(보류) - 출근만 집계
+      rosterEntries.forEach(entry => {
+        if(entry.tag === '퇴사') return; // 퇴사자는 제외
+        const type = (entry.tag === '휴무') ? 'leave' : 'checkIn';
+        results.push({
+          date: msg.date,
+          name: entry.name,
+          type: type,
+          time: msg.time,
+          rawText: `[단체명단:${msg.sender}] ${entry.name}${entry.tag ? '-' + entry.tag : ''}`,
+          needsReview: true // 단체 명단으로 처리된 항목은 항상 검토 필요로 표시
+        });
+      });
+      return; // 단체 명단으로 처리했으면 아래의 개인 보고 로직은 건너뜀
+    }
+
+    // ---- 2) 개인 보고 메시지 (기존 방식: 보낸사람 닉네임 = 그 사람 이름) ----
+    if(!hasCheckIn && !hasCheckOut && !hasLeave) return;
+
     let type = null;
     if(hasLeave) type = 'leave';
     else if(hasCheckOut) type = 'checkOut';
     else if(hasCheckIn) type = 'checkIn';
-    if(!type) continue;
+    if(!type) return;
 
-    // 보낸사람 닉네임이 순수 한글 이름(2~4자)이 아니면(전화번호/직책/이모티콘 등이 섞인 경우) 검토 필요로 분류
-    const isCleanName = /^[가-힣]{2,4}$/.test(senderName);
-
+    const isAmbiguous = ATT_AMBIGUOUS_KEYWORDS.some(k => body.includes(k));
+    const isCleanName = /^[가-힣]{2,4}$/.test(msg.sender);
     const oddCheckInSpelling = ATT_CHECKIN_KEYWORDS.slice(1).some(k => body.includes(k));
+
     results.push({
-      date: currentDate,
-      name: senderName,
+      date: msg.date,
+      name: msg.sender,
       type: type,
-      time: timeLabel,
+      time: msg.time,
       rawText: body,
       needsReview: isAmbiguous || oddCheckInSpelling || !isCleanName
     });
-  }
+  });
+
   return results;
 }
 
@@ -3384,6 +3445,18 @@ function statusPillHtml(value, kind){
   return `<span class="att-status-pill ${cls}">${escapeHtml(value)}</span>`;
 }
 
+function timeLabelToMinutes(timeLabel){
+  // "오전 7:50" / "오후 1:05" 같은 라벨을 정렬 가능한 분 단위 숫자로 변환. 형식이 다르면 매우 큰 값(맨 뒤로)
+  if(!timeLabel) return 99999;
+  const m = timeLabel.match(/(오전|오후)?\s*(\d{1,2}):(\d{2})/);
+  if(!m) return 99999;
+  let hh = parseInt(m[2], 10);
+  const mm = parseInt(m[3], 10);
+  if(m[1] === '오후' && hh < 12) hh += 12;
+  if(m[1] === '오전' && hh === 12) hh = 0;
+  return hh * 60 + mm;
+}
+
 function renderAttTable(){
   const area = document.getElementById('attTableArea');
   const todays = attRecords.filter(r => r.date === attCurrentDate);
@@ -3399,8 +3472,17 @@ function renderAttTable(){
     return;
   }
 
+  // 출근 시각 기준 시간순 정렬. 기록 없는 사람('???')은 맨 뒤.
+  const sortedNames = [...allNames].sort((a, b) => {
+    const ra = byName[a], rb = byName[b];
+    const ta = ra ? timeLabelToMinutes(ra.checkInTime) : 100000;
+    const tb = rb ? timeLabelToMinutes(rb.checkInTime) : 100000;
+    if(ta !== tb) return ta - tb;
+    return a.localeCompare(b);
+  });
+
   let html = '<table class="att-table"><thead><tr><th>이름</th><th>출근</th><th>시간</th><th>퇴근</th><th>시간</th><th>휴무</th><th>비고</th></tr></thead><tbody>';
-  allNames.sort().forEach(name => {
+  sortedNames.forEach(name => {
     const r = byName[name];
     if(!r){
       html += `<tr>
@@ -3476,7 +3558,10 @@ function openAttReviewDecide(dateStr, name){
   }else{
     rawArea.innerHTML = messages.map(m => `<p class="att-raw-text">${escapeHtml(m)}</p>`).join('');
   }
-  document.getElementById('attReviewDecideSelect').value = 'checkIn';
+  let defaultSelect = 'checkIn';
+  if(rec.leave) defaultSelect = 'leave';
+  else if(rec.checkOut) defaultSelect = 'checkOut';
+  document.getElementById('attReviewDecideSelect').value = defaultSelect;
   document.getElementById('attReviewDecideOverlay').classList.add('show');
 }
 document.getElementById('cancelAttReviewDecide').addEventListener('click', () => {
