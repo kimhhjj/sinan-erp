@@ -638,6 +638,13 @@
   }
   .att-needs-review:hover{ opacity: 0.75; }
   .att-row-name{ font-weight: 700; font-family: var(--font-display); color: var(--charcoal); }
+  .att-raw-list{
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
   .att-raw-text{
     font-size: 12.5px;
     color: var(--charcoal);
@@ -1378,7 +1385,7 @@
     <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;" id="attReviewDecideDate"></p>
     <div class="field" style="margin-bottom:14px;">
       <label>원문 메시지</label>
-      <p class="att-raw-text" id="attReviewDecideRaw"></p>
+      <div class="att-raw-list" id="attReviewDecideRaw"></div>
     </div>
     <div class="field" style="margin-bottom:18px;">
       <label for="attReviewDecideSelect">이 기록을 어떻게 처리할까요?</label>
@@ -3094,13 +3101,11 @@ const ATT_IGNORE_KEYWORDS = ['출문보고', '입문보고', '교육공지', '�
 const ATT_CHECKIN_KEYWORDS = ['출근', '츨근', '줄근', '출퐌', '출그ㄴ'];
 const ATT_CHECKOUT_KEYWORDS = ['퇴근', '연장퇴근', '퇴ㄴ근', '퉤근'];
 const ATT_LEAVE_KEYWORDS = ['휴무'];
+// 출근/퇴근/휴무는 확정하되, 이런 단어가 같이 있으면 "검토 필요"로 같이 표시(사람이 한번 더 확인하도록)
 const ATT_AMBIGUOUS_KEYWORDS = ['조퇴', '???', '검토', 'ino오류', '오류', '미태깅', '반차'];
-// 이름으로 잘못 잡히기 쉬운 단어들(동사 어미, 출퇴근 관련 표현 등)
-const ATT_NAME_EXCLUDE = [
-  '출근','퇴근','휴무','신청','완료','오후','오전','연장','조퇴','오류','미태깅','검토','반차',
-  '보고','확인','합니다','했어요','됩니다','입니다','취소','진료','병원','탑승','출문',
-  '신청합니다','출근신청','출근보도','오후출근','주간퇴근','연장퇴근','휴무신청','조퇴신청'
-];
+
+// 이 날짜부터의 기록만 반영 (그 이전 데이터는 무시)
+const ATT_CUTOFF_DATE = '2026-06-24';
 
 function parseKakaoAttendance(text){
   const lines = text.split(/\r?\n/);
@@ -3118,9 +3123,12 @@ function parseKakaoAttendance(text){
       continue;
     }
 
-    const msgMatch = line.match(ATT_MSG_LINE_RE);
-    if(!msgMatch || !currentDate) continue;
+    if(!currentDate || currentDate < ATT_CUTOFF_DATE) continue;
 
+    const msgMatch = line.match(ATT_MSG_LINE_RE);
+    if(!msgMatch) continue;
+
+    const senderName = msgMatch[1].trim();
     const ampm = msgMatch[2] || '';
     const timeRaw = msgMatch[3] || '';
     const timeLabel = (ampm + ' ' + timeRaw).trim();
@@ -3134,32 +3142,24 @@ function parseKakaoAttendance(text){
     const hasLeave = ATT_LEAVE_KEYWORDS.some(k => body.includes(k));
     if(!hasCheckIn && !hasCheckOut && !hasLeave) continue;
 
-    // 본문이 키워드뿐이라 이름이 없는 경우(예: "휴무신청"만 온 메시지)는
-    // 보낸사람 닉네임에서 이름을 추정 (검토 필요로 표시)
-    const bodyNoSpace = body.replace(/\s/g, '');
-    const isBareKeywordOnly = /^(휴무신청|출근|퇴근|휴무|연장퇴근|조퇴신청|출근신청)$/.test(bodyNoSpace);
-    const nameSource = isBareKeywordOnly ? msgMatch[1] : body;
+    // [보낸사람]이 곧 그 메시지를 보낸 사람의 이름 (카톡방 규칙: 본인이 본인 이름으로 출근/퇴근 보고)
+    let type = null;
+    if(hasLeave) type = 'leave';
+    else if(hasCheckOut) type = 'checkOut';
+    else if(hasCheckIn) type = 'checkIn';
+    if(!type) continue;
 
-    // 메시지 본문(또는 보낸사람 닉네임)에서 이름 추출: 한글 이름 패턴(2~4자) 탐색
-    const nameMatches = nameSource.match(/[가-힣]{2,4}(?=\s|출근|퇴근|휴무|$)/g) || [];
-    const candidateNames = [...new Set(nameMatches)].filter(n => !ATT_NAME_EXCLUDE.includes(n));
-    if(candidateNames.length === 0) continue;
+    // 보낸사람 닉네임이 순수 한글 이름(2~4자)이 아니면(전화번호/직책/이모티콘 등이 섞인 경우) 검토 필요로 분류
+    const isCleanName = /^[가-힣]{2,4}$/.test(senderName);
 
-    candidateNames.forEach(name => {
-      let type = null;
-      if(hasLeave) type = 'leave';
-      else if(hasCheckOut) type = 'checkOut';
-      else if(hasCheckIn) type = 'checkIn';
-      if(!type) return;
-      const oddCheckInSpelling = ATT_CHECKIN_KEYWORDS.slice(1).some(k => body.includes(k));
-      results.push({
-        date: currentDate,
-        name: name,
-        type: type,
-        time: timeLabel,
-        rawText: body,
-        needsReview: isAmbiguous || oddCheckInSpelling || isBareKeywordOnly
-      });
+    const oddCheckInSpelling = ATT_CHECKIN_KEYWORDS.slice(1).some(k => body.includes(k));
+    results.push({
+      date: currentDate,
+      name: senderName,
+      type: type,
+      time: timeLabel,
+      rawText: body,
+      needsReview: isAmbiguous || oddCheckInSpelling || !isCleanName
     });
   }
   return results;
@@ -3171,9 +3171,14 @@ function buildAttendanceRecordsForDate(dateStr, parsedForDate){
   parsedForDate.forEach(p => {
     if(!byName[p.name]) byName[p.name] = { date: dateStr, name: p.name, checkIn: '', checkInTime: '', checkOut: '', checkOutTime: '', leave: '', status: 'confirmed', rawText: '', reviewDecision: '' };
     const rec = byName[p.name];
-    if(p.type === 'checkIn'){ rec.checkIn = '출근완료'; rec.checkInTime = p.time || ''; if(p.needsReview){ rec.status = 'needs_review'; rec.rawText = p.rawText; } }
-    if(p.type === 'checkOut'){ rec.checkOut = '퇴근완료'; rec.checkOutTime = p.time || ''; if(p.needsReview){ rec.status = 'needs_review'; rec.rawText = p.rawText; } }
-    if(p.type === 'leave'){ rec.leave = '휴무'; if(p.needsReview){ rec.status = 'needs_review'; rec.rawText = p.rawText; } }
+    // 출근/퇴근/휴무는 항상 확정 처리. 특이사항(미태깅, 오류 등)이 있으면 "검토 필요"도 같이 표시.
+    if(p.type === 'checkIn'){ rec.checkIn = '출근완료'; rec.checkInTime = p.time || ''; }
+    if(p.type === 'checkOut'){ rec.checkOut = '퇴근완료'; rec.checkOutTime = p.time || ''; }
+    if(p.type === 'leave'){ rec.leave = '휴무'; }
+    if(p.needsReview) rec.status = 'needs_review';
+    // 검토 시 참고할 수 있도록, 그날 이 사람이 보낸 출퇴근 관련 메시지를 전부 누적해서 저장
+    const tagged = `[${p.time || '시각미상'}] ${p.rawText}`;
+    rec.rawText = rec.rawText ? (rec.rawText + ' || ' + tagged) : tagged;
   });
   return Object.values(byName);
 }
@@ -3261,20 +3266,44 @@ document.getElementById('confirmNewNameBtn').addEventListener('click', async () 
 
 async function commitAttendanceUpload(data, excludedNames){
   const excludeSet = new Set(excludedNames);
-  let employeesChanged = false;
   const dateStrs = Object.keys(data.recordsByDate);
 
-  for(const dateStr of dateStrs){
-    let recordsForDate = data.recordsByDate[dateStr].filter(r => !excludeSet.has(r.name));
-    recordsForDate.forEach(r => { if(ensureEmployeeExists(r.name, dateStr)) employeesChanged = true; });
-    attRecords = attRecords.filter(r => r.date !== dateStr).concat(recordsForDate);
-    await saveAttendanceForDate(dateStr, recordsForDate);
-  }
-  if(employeesChanged) await saveEmployees();
+  // 1) 화면(로컬 캐시) 먼저 갱신 - 서버 응답을 기다리지 않고 즉시 반영
+  const allNewRecords = [];
+  const newEmployeeEntries = [];
+  dateStrs.forEach(dateStr => {
+    const recordsForDate = data.recordsByDate[dateStr].filter(r => !excludeSet.has(r.name));
+    recordsForDate.forEach(r => {
+      allNewRecords.push(r);
+      if(ensureEmployeeExists(r.name, dateStr)){
+        newEmployeeEntries.push({ name: r.name, firstSeenDate: dateStr, active: 'true' });
+      }
+    });
+  });
+  const dateSet = new Set(dateStrs);
+  attRecords = attRecords.filter(r => !dateSet.has(r.date)).concat(allNewRecords);
 
-  showToast(`${dateStrs.length}개 날짜의 출퇴근 기록이 반영되었습니다.`);
   renderAttTable();
   renderAttReviewPanel();
+  showToast(`${dateStrs.length}개 날짜의 출퇴근 기록을 반영하는 중...`);
+
+  // 2) 서버에는 딱 한 번의 요청으로 전체를 보냄 (날짜별 반복 요청 없음)
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        type: 'attendance',
+        action: 'uploadBatch',
+        dates: dateStrs,
+        records: allNewRecords,
+        newEmployees: newEmployeeEntries
+      })
+    });
+    showToast(`${dateStrs.length}개 날짜의 출퇴근 기록이 반영되었습니다.`);
+  }catch(e){
+    showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+  }
 }
 
 /* ---- 날짜 표시/이동 ---- */
@@ -3417,12 +3446,15 @@ function renderAttReviewPanel(){
   panel.style.display = '';
   const area = document.getElementById('attReviewListArea');
   const sorted = [...reviewItems].sort((a,b) => b.date.localeCompare(a.date));
-  area.innerHTML = sorted.map(r => `
+  area.innerHTML = sorted.map(r => {
+    const preview = (r.rawText || '').split(' || ').map(m => m.replace(/^\[[^\]]*\]\s*/, '')).join(', ');
+    return `
     <div class="att-review-item">
-      <span><b>${escapeHtml(r.name)}</b> (${escapeHtml(r.date)}) — ${escapeHtml(r.rawText || '')}</span>
+      <span><b>${escapeHtml(r.name)}</b> (${escapeHtml(r.date)}) — ${escapeHtml(preview)}</span>
       <button class="btn small" data-action="att-review-from-panel" data-date="${r.date}" data-name="${escapeHtml(r.name)}">검토하기</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 document.getElementById('attReviewListArea').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action="att-review-from-panel"]');
@@ -3436,7 +3468,14 @@ function openAttReviewDecide(dateStr, name){
   attReviewDecideTarget = { date: dateStr, name: name };
   document.getElementById('attReviewDecideName').textContent = name;
   document.getElementById('attReviewDecideDate').textContent = dateStr;
-  document.getElementById('attReviewDecideRaw').textContent = rec.rawText || '(원문 없음)';
+
+  const rawArea = document.getElementById('attReviewDecideRaw');
+  const messages = (rec.rawText || '').split(' || ').filter(Boolean);
+  if(messages.length === 0){
+    rawArea.innerHTML = '<p class="att-raw-text">(원문 없음)</p>';
+  }else{
+    rawArea.innerHTML = messages.map(m => `<p class="att-raw-text">${escapeHtml(m)}</p>`).join('');
+  }
   document.getElementById('attReviewDecideSelect').value = 'checkIn';
   document.getElementById('attReviewDecideOverlay').classList.add('show');
 }
