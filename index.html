@@ -823,6 +823,12 @@
     flex-direction: column;
     gap: 3px;
   }
+  #attCalGrid .cal-day{
+    min-height: 40px;
+    padding: 6px;
+    align-items: center;
+    justify-content: center;
+  }
   .cal-day:hover{ background: var(--shadow-tint-blue); }
   .cal-day.empty{ visibility: hidden; cursor: default; }
   .cal-day.today{ border-color: var(--violet); border-width: 2px; }
@@ -834,6 +840,10 @@
     color: var(--charcoal);
     margin-bottom: 2px;
   }
+  .cal-dow.dow-sun, .cal-day-num.dow-sun{ color: var(--no); }
+  .cal-dow.dow-sat, .cal-day-num.dow-sat{ color: var(--blue); }
+  .cal-day.selected .cal-day-num.dow-sun,
+  .cal-day.selected .cal-day-num.dow-sat{ color: #fff; opacity: 0.85; }
   .cal-day-event-preview{
     font-size: 10.5px;
     font-weight: 600;
@@ -2384,6 +2394,11 @@ async function loadMonthEvents(){
 }
 
 const CAL_DOW = ['일','월','화','수','목','금','토'];
+function dowColorClass(dowIndex){
+  if(dowIndex === 0) return 'dow-sun';
+  if(dowIndex === 6) return 'dow-sat';
+  return '';
+}
 
 function renderCalendarGrid(){
   document.getElementById('calTitle').textContent = `${calCurrentYear}년 ${calCurrentMonth + 1}월`;
@@ -2395,7 +2410,7 @@ function renderCalendarGrid(){
     return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
   })();
 
-  let html = CAL_DOW.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  let html = CAL_DOW.map((d, i) => `<div class="cal-dow ${dowColorClass(i)}">${d}</div>`).join('');
   for(let i = 0; i < firstDay; i++){
     html += '<div class="cal-day empty"></div>';
   }
@@ -2403,6 +2418,7 @@ function renderCalendarGrid(){
   for(let d = 1; d <= daysInMonth; d++){
     const key = dateKey(calCurrentYear, calCurrentMonth, d);
     const events = calEventsCache[key] || [];
+    const dow = new Date(calCurrentYear, calCurrentMonth, d).getDay();
     const classes = ['cal-day'];
     if(key === todayStr) classes.push('today');
     if(key === calSelectedDateStr) classes.push('selected');
@@ -2414,7 +2430,7 @@ function renderCalendarGrid(){
     ).join('') + (remaining > 0 ? `<span class="cal-day-more-badge">+${remaining}</span>` : '');
 
     html += `<button class="${classes.join(' ')}" data-date="${key}">
-      <span class="cal-day-num">${d}</span>
+      <span class="cal-day-num ${dowColorClass(dow)}">${d}</span>
       ${previewHtml}
     </button>`;
   }
@@ -3313,12 +3329,13 @@ function renderAttCalendarPicker(){
   const grid = document.getElementById('attCalGrid');
   const firstDay = new Date(attCalYear, attCalMonth, 1).getDay();
   const daysInMonth = new Date(attCalYear, attCalMonth+1, 0).getDate();
-  let html = CAL_DOW.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  let html = CAL_DOW.map((d, i) => `<div class="cal-dow ${dowColorClass(i)}">${d}</div>`).join('');
   for(let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
   for(let d=1; d<=daysInMonth; d++){
     const key = `${attCalYear}-${pad(attCalMonth+1)}-${pad(d)}`;
+    const dow = new Date(attCalYear, attCalMonth, d).getDay();
     const cls = key === attCurrentDate ? 'cal-day selected' : 'cal-day';
-    html += `<button class="${cls}" data-date="${key}" style="min-height:40px;"><span class="cal-day-num">${d}</span></button>`;
+    html += `<button class="${cls}" data-date="${key}"><span class="cal-day-num ${dowColorClass(dow)}">${d}</span></button>`;
   }
   grid.innerHTML = html;
 }
