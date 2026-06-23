@@ -628,9 +628,14 @@
   .drive-row:last-child{ border-bottom: none; }
   .drive-row:hover{ background: var(--shadow-tint-blue); }
   .drive-row-icon{ font-size: 18px; flex-shrink: 0; width: 22px; text-align: center; }
-  .drive-row-name{
+  .drive-row-name-wrap{
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .drive-row-name{
     font-size: 13.5px;
     color: var(--charcoal);
     font-weight: 600;
@@ -638,11 +643,43 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .drive-row-meta{ font-size: 11px; color: var(--smoke); flex-shrink: 0; }
+  .drive-row-date{
+    font-size: 11px;
+    color: var(--smoke);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .drive-row-actions{ display:flex; gap: 6px; flex-shrink: 0; }
   #previewContent img{ max-width: 100%; border-radius: var(--radius-btn); display:block; }
   #previewContent iframe{ width: 100%; height: 480px; border: 1px solid var(--ash); border-radius: var(--radius-btn); }
   #previewContent .no-preview{ font-size: 13px; color: var(--smoke); text-align:center; padding: 30px 0; }
+  .activity-item{
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--ash);
+    font-size: 12.5px;
+  }
+  .activity-item:last-child{ border-bottom: none; }
+  .activity-item-top{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .activity-badge{
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    flex-shrink: 0;
+  }
+  .activity-badge.act-업로드{ background: var(--ok-bg); color: var(--ok); }
+  .activity-badge.act-삭제{ background: var(--no-bg); color: var(--no); }
+  .activity-badge.act-이름변경{ background: var(--shadow-tint-blue); color: var(--blue); }
+  .activity-badge.act-폴더생성{ background: rgba(123,104,238,0.12); color: var(--violet); }
+  .activity-file-name{ font-weight: 700; color: var(--charcoal); word-break: break-word; }
+  .activity-detail{ font-size: 11.5px; color: var(--smoke); margin-left: 0; }
+  .activity-time{ font-size: 10.5px; color: var(--smoke); margin-top: 2px; }
 
   /* ===== 캘린더 (홈) ===== */
   .cal-header{
@@ -786,7 +823,7 @@
     .event-form{ flex-direction: column; }
     .drive-toolbar-actions{ width: 100%; }
     .drive-toolbar-actions input[type=text]{ width: 100%; }
-    .drive-row-meta{ display:none; }
+    .drive-row-date{ display:none; }
   }
 </style>
 </head>
@@ -976,6 +1013,7 @@
       <div id="category-safety" style="display:none;">
         <div class="page-header">
           <h1>안전관리</h1>
+          <button class="btn small" id="driveActivityBtn">활동 내역</button>
         </div>
 
         <div id="driveLoginGate" class="panel" style="text-align:center; padding:40px 24px;">
@@ -1140,6 +1178,36 @@
         <button type="submit" class="btn primary">만들기</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="renameOverlay">
+  <div class="modal">
+    <h3>이름 변경</h3>
+    <form id="renameForm">
+      <input type="hidden" id="rn-id">
+      <input type="hidden" id="rn-old-name">
+      <div class="field" style="margin-bottom:18px;">
+        <label for="rn-name">새 이름</label>
+        <input type="text" id="rn-name" required maxlength="150">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="cancelRename">취소</button>
+        <button type="submit" class="btn primary">변경</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="driveActivityOverlay">
+  <div class="modal" style="max-width:560px;">
+    <h3>안전관리 활동 내역</h3>
+    <div id="driveActivityList" style="max-height:420px; overflow-y:auto; margin-bottom:18px;">
+      <div class="loading">불러오는 중...</div>
+    </div>
+    <div style="display:flex; justify-content:flex-end;">
+      <button type="button" class="btn" id="closeDriveActivity">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -2375,7 +2443,7 @@ async function loadDriveFolder(folderId, resetPath){
   document.getElementById('driveListArea').innerHTML = '<div class="loading">불러오는 중...</div>';
   try{
     const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-    const fields = encodeURIComponent('files(id,name,mimeType,size,modifiedTime,webContentLink)');
+    const fields = encodeURIComponent('files(id,name,mimeType,size,createdTime,modifiedTime,webContentLink)');
     const res = await driveApiFetch(`/files?q=${q}&fields=${fields}&orderBy=folder,name`);
     const data = await res.json();
     driveCurrentItems = data.files || [];
@@ -2388,6 +2456,13 @@ async function loadDriveFolder(folderId, resetPath){
   }
 }
 
+function formatDriveDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`;
+}
+
 function renderDriveList(){
   const area = document.getElementById('driveListArea');
   if(driveCurrentItems.length === 0){
@@ -2396,13 +2471,21 @@ function renderDriveList(){
   }
   area.innerHTML = driveCurrentItems.map(item => {
     const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
-    const meta = isFolder ? '폴더' : formatDriveSize(item.size);
+    const sizeLabel = isFolder ? '폴더' : formatDriveSize(item.size);
+    const createdLabel = formatDriveDate(item.createdTime);
+    const modifiedLabel = formatDriveDate(item.modifiedTime);
+    const dateLabel = isFolder
+      ? (createdLabel ? `생성 ${createdLabel}` : '')
+      : `등록 ${createdLabel}${modifiedLabel && modifiedLabel !== createdLabel ? ` · 수정 ${modifiedLabel}` : ''}`;
     return `<div class="drive-row" data-id="${item.id}" data-mime="${item.mimeType}" data-name="${escapeHtml(item.name)}" data-is-folder="${isFolder}">
       <span class="drive-row-icon">${driveFileIcon(item.mimeType)}</span>
-      <span class="drive-row-name">${escapeHtml(item.name)}</span>
-      <span class="drive-row-meta">${meta}</span>
+      <div class="drive-row-name-wrap">
+        <span class="drive-row-name">${escapeHtml(item.name)}</span>
+        <span class="drive-row-date">${dateLabel}${dateLabel && sizeLabel ? ' · ' : ''}${sizeLabel}</span>
+      </div>
       <div class="drive-row-actions">
         ${!isFolder ? `<button class="btn small" data-action="drive-download" data-id="${item.id}" data-name="${escapeHtml(item.name)}">다운로드</button>` : ''}
+        <button class="btn small" data-action="drive-rename" data-id="${item.id}" data-name="${escapeHtml(item.name)}">이름변경</button>
         <button class="btn small danger" data-action="drive-delete" data-id="${item.id}" data-name="${escapeHtml(item.name)}">삭제</button>
       </div>
     </div>`;
@@ -2416,9 +2499,11 @@ document.getElementById('driveListArea').addEventListener('click', async (e) => 
     const name = actionBtn.dataset.name;
     if(actionBtn.dataset.action === 'drive-download'){
       await driveDownloadFile(id, name);
+    }else if(actionBtn.dataset.action === 'drive-rename'){
+      openRenameModal(id, name);
     }else if(actionBtn.dataset.action === 'drive-delete'){
       if(confirm(`"${name}"을(를) 삭제할까요?`)){
-        await driveDeleteItem(id);
+        await driveDeleteItem(id, name);
       }
     }
     return;
@@ -2436,6 +2521,47 @@ document.getElementById('driveListArea').addEventListener('click', async (e) => 
     loadDriveFolder(id, false);
   }else{
     openFilePreview(id, name, mime);
+  }
+});
+
+function openRenameModal(id, currentName){
+  document.getElementById('rn-id').value = id;
+  document.getElementById('rn-old-name').value = currentName;
+  document.getElementById('rn-name').value = currentName;
+  document.getElementById('renameOverlay').classList.add('show');
+}
+document.getElementById('cancelRename').addEventListener('click', () => {
+  document.getElementById('renameOverlay').classList.remove('show');
+});
+document.getElementById('renameOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'renameOverlay') document.getElementById('renameOverlay').classList.remove('show');
+});
+document.getElementById('renameForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('rn-id').value;
+  const oldName = document.getElementById('rn-old-name').value;
+  const newName = document.getElementById('rn-name').value.trim();
+  if(!newName || newName === oldName){
+    document.getElementById('renameOverlay').classList.remove('show');
+    return;
+  }
+
+  const item = driveCurrentItems.find(x => x.id === id);
+  if(item) item.name = newName;
+  renderDriveList();
+  document.getElementById('renameOverlay').classList.remove('show');
+
+  try{
+    await driveApiFetch(`/files/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: newName })
+    });
+    showToast('이름이 변경되었습니다.');
+    logDriveActivity(newName, '이름변경', `"${oldName}" → "${newName}"`);
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      showToast('이름 변경에 실패했습니다.');
+    }
   }
 });
 
@@ -2458,12 +2584,13 @@ async function driveDownloadFile(id, name){
   }
 }
 
-async function driveDeleteItem(id){
+async function driveDeleteItem(id, name){
   driveCurrentItems = driveCurrentItems.filter(x => x.id !== id);
   renderDriveList();
   try{
     await driveApiFetch(`/files/${id}`, { method: 'DELETE' });
     showToast('삭제되었습니다.');
+    logDriveActivity(name, '삭제', '');
   }catch(err){
     if(err.message !== 'unauthorized'){
       showToast('삭제에 실패했습니다. 새로고침 후 다시 시도해주세요.');
@@ -2538,6 +2665,7 @@ document.getElementById('newFolderForm').addEventListener('submit', async (e) =>
     });
     await res.json();
     showToast('폴더가 생성되었습니다.');
+    logDriveActivity(name, '폴더생성', '');
     loadDriveFolder(currentFolderId, false);
   }catch(err){
     if(err.message !== 'unauthorized'){
@@ -2572,6 +2700,7 @@ document.getElementById('driveFileInput').addEventListener('change', async (e) =
         handleGcalUnauthorized();
         return;
       }
+      logDriveActivity(file.name, '업로드', formatDriveSize(file.size));
     }catch(err){
       showToast(`"${file.name}" 업로드에 실패했습니다.`);
     }
@@ -2612,6 +2741,68 @@ async function driveSearch(keyword){
     }
   }
 }
+
+/* ===== 안전관리 활동 내역 (구글 시트에 기록) ===== */
+async function logDriveActivity(fileName, action, detail){
+  const entry = {
+    timestamp: new Date().toISOString(),
+    fileName: fileName,
+    action: action,
+    detail: detail || ''
+  };
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'activity', action: 'append', entry: entry })
+    });
+  }catch(e){
+    // 활동 기록 실패는 사용자 작업을 막지 않음 (조용히 무시)
+  }
+}
+
+function formatActivityTime(iso){
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return iso;
+  return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+async function loadDriveActivity(){
+  const area = document.getElementById('driveActivityList');
+  area.innerHTML = '<div class="loading">불러오는 중...</div>';
+  try{
+    const res = await fetch(SHEET_API_URL + '?type=activity');
+    const data = await res.json();
+    if(!data.ok || !data.activity || data.activity.length === 0){
+      area.innerHTML = '<div class="empty">활동 내역이 없습니다.</div>';
+      return;
+    }
+    const sorted = [...data.activity].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    area.innerHTML = sorted.map(item => `
+      <div class="activity-item">
+        <div class="activity-item-top">
+          <span class="activity-badge act-${escapeHtml(item.action)}">${escapeHtml(item.action)}</span>
+          <span class="activity-file-name">${escapeHtml(item.fileName)}</span>
+        </div>
+        ${item.detail ? `<div class="activity-detail">${escapeHtml(item.detail)}</div>` : ''}
+        <div class="activity-time">${formatActivityTime(item.timestamp)}</div>
+      </div>
+    `).join('');
+  }catch(e){
+    area.innerHTML = '<div class="empty">활동 내역을 불러오지 못했습니다.</div>';
+  }
+}
+
+document.getElementById('driveActivityBtn').addEventListener('click', () => {
+  document.getElementById('driveActivityOverlay').classList.add('show');
+  loadDriveActivity();
+});
+document.getElementById('closeDriveActivity').addEventListener('click', () => {
+  document.getElementById('driveActivityOverlay').classList.remove('show');
+});
+document.getElementById('driveActivityOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'driveActivityOverlay') document.getElementById('driveActivityOverlay').classList.remove('show');
+});
 
 
 
