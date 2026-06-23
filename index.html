@@ -582,6 +582,105 @@
 
   .loading{ text-align:center; padding: 32px; color: var(--smoke); font-size: 13px; }
 
+  /* ===== 출퇴근관리 ===== */
+  .att-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .att-date-picker{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+  }
+  .att-date-display{
+    border: 1px solid var(--ash);
+    background: var(--canvas);
+    padding: 8px 14px;
+    border-radius: var(--radius-btn);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--deep-charcoal);
+    cursor: pointer;
+  }
+  .att-date-display:hover{ box-shadow: var(--shadow-hover); }
+  #attNameSearch{ width: 220px; }
+  table.att-table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.att-table th, table.att-table td{
+    padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--ash); vertical-align: middle;
+  }
+  table.att-table th{
+    font-size: 11px; color: var(--smoke); text-transform: uppercase;
+    letter-spacing: 0.4px; font-weight: 700; font-family: var(--font-display);
+  }
+  table.att-table tbody tr:hover{ background: var(--shadow-tint-blue); }
+  .att-status-pill{
+    display:inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+  }
+  .att-status-pill.in-done{ background: var(--ok-bg); color: var(--ok); }
+  .att-status-pill.out-done{ background: var(--shadow-tint-blue); color: var(--blue); }
+  .att-status-pill.leave{ background: rgba(123,104,238,0.12); color: var(--violet); }
+  .att-status-pill.unknown{ background: var(--no-bg); color: var(--no); }
+  .att-status-pill.empty-cell{ background: var(--sky); color: var(--smoke); }
+  .att-needs-review{
+    color: var(--no) !important;
+    text-decoration: underline;
+    text-decoration-color: var(--no);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .att-needs-review:hover{ opacity: 0.75; }
+  .att-row-name{ font-weight: 700; font-family: var(--font-display); color: var(--charcoal); }
+  .att-raw-text{
+    font-size: 12.5px;
+    color: var(--charcoal);
+    background: var(--sky);
+    padding: 10px 12px;
+    border-radius: var(--radius-btn);
+    margin: 0;
+    word-break: break-word;
+  }
+  .att-review-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--no-bg);
+    border-radius: var(--radius-btn);
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .att-review-item:last-child{ margin-bottom: 0; }
+  .att-history-item{
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--ash);
+    font-size: 13px;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+  .att-history-item:last-child{ border-bottom: none; }
+  .att-history-date{ font-family: var(--font-display); font-weight: 700; color: var(--charcoal); width: 110px; flex-shrink: 0; }
+  .new-name-row{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--ash);
+    cursor: pointer;
+  }
+  .new-name-row:last-child{ border-bottom: none; }
+  .new-name-row input[type=checkbox]{ width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .new-name-row .att-row-name{ flex: 1; }
+
   /* ===== 안전관리 (Google Drive) ===== */
   .drive-toolbar{
     display:flex;
@@ -876,6 +975,7 @@
       <div class="nav-divider"></div>
       <p class="nav-label">카테고리</p>
       <button class="nav-item active" data-category="home">홈</button>
+      <button class="nav-item" data-category="attendance">출퇴근관리</button>
       <button class="nav-item" data-category="accident">사고근태방</button>
       <button class="nav-item" data-category="prevention">재발방지대책<span class="badge">준비중</span></button>
       <button class="nav-item" data-category="safety">안전관리</button>
@@ -918,6 +1018,42 @@
               <div id="eventListArea"><div class="empty">날짜를 먼저 선택해주세요.</div></div>
             </div>
           </section>
+        </div>
+      </div>
+
+      <!-- ===== 출퇴근관리 카테고리 ===== -->
+      <div id="category-attendance" style="display:none;">
+        <div class="page-header">
+          <h1>출퇴근관리</h1>
+          <input type="file" id="attFileInput" accept=".txt" style="display:none;">
+          <button class="btn primary" id="attUploadBtn">+ 대화내용(txt) 업로드</button>
+        </div>
+
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="att-toolbar">
+            <div class="att-date-picker">
+              <button class="btn small" id="attPrevDayBtn">&larr;</button>
+              <button class="att-date-display" id="attDateDisplay">2026년 6월 23일</button>
+              <button class="btn small" id="attNextDayBtn">&rarr;</button>
+              <button class="btn small" id="attTodayBtn">오늘</button>
+            </div>
+            <input type="text" id="attNameSearch" placeholder="이름으로 검색 (전체 이력)">
+          </div>
+        </div>
+
+        <div id="attSearchResultPanel" class="panel" style="display:none; margin-bottom:20px;">
+          <p class="block-title">검색 결과: <span id="attSearchResultName"></span></p>
+          <div id="attSearchResultArea"></div>
+        </div>
+
+        <div class="panel" id="attReviewPanel" style="display:none; margin-bottom:20px;">
+          <p class="block-title">검토 필요 모아보기 (<span id="attReviewCount">0</span>건)</p>
+          <div id="attReviewListArea"></div>
+        </div>
+
+        <div class="panel">
+          <p class="block-title">이 날짜 출퇴근 현황</p>
+          <div id="attTableArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
 
@@ -1211,6 +1347,57 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="attCalendarOverlay">
+  <div class="modal" style="max-width:380px;">
+    <h3>날짜 선택</h3>
+    <div class="cal-header">
+      <button class="btn small" id="attCalPrevBtn">&larr;</button>
+      <span class="cal-title" id="attCalTitle"></span>
+      <button class="btn small" id="attCalNextBtn">&rarr;</button>
+    </div>
+    <div class="cal-grid" id="attCalGrid"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+      <button type="button" class="btn" id="closeAttCalendar">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attReviewDecideOverlay">
+  <div class="modal">
+    <h3>검토 — <span id="attReviewDecideName"></span></h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;" id="attReviewDecideDate"></p>
+    <div class="field" style="margin-bottom:14px;">
+      <label>원문 메시지</label>
+      <p class="att-raw-text" id="attReviewDecideRaw"></p>
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="attReviewDecideSelect">이 기록을 어떻게 처리할까요?</label>
+      <select id="attReviewDecideSelect">
+        <option value="checkIn">출근으로 확정</option>
+        <option value="checkOut">퇴근으로 확정</option>
+        <option value="leave">휴무로 확정</option>
+        <option value="ignore">무시(출퇴근과 무관)</option>
+      </select>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelAttReviewDecide">취소</button>
+      <button type="button" class="btn primary" id="confirmAttReviewDecide">확정</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newNameConfirmOverlay">
+  <div class="modal" style="max-width:480px;">
+    <h3>새로운 이름이 발견되었습니다</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">직원 명단에 추가할 사람만 선택해주세요. 잘못 인식된 단어는 체크를 해제하세요.</p>
+    <div id="newNameConfirmList" style="max-height:340px; overflow-y:auto; margin-bottom:18px;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelNewNameConfirm">취소</button>
+      <button type="button" class="btn primary" id="confirmNewNameBtn">반영하기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="filePreviewOverlay">
   <div class="modal" style="max-width:720px;">
     <h3 id="previewFileName" style="word-break:break-word;"></h3>
@@ -1393,11 +1580,13 @@ document.querySelectorAll('.subtab').forEach(t => {
 function switchCategory(name){
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.category === name));
   document.getElementById('category-home').style.display = name === 'home' ? '' : 'none';
+  document.getElementById('category-attendance').style.display = name === 'attendance' ? '' : 'none';
   document.getElementById('category-accident').style.display = name === 'accident' ? '' : 'none';
   document.getElementById('category-todos').style.display = name === 'todos' ? '' : 'none';
   document.getElementById('category-prevention').style.display = name === 'prevention' ? '' : 'none';
   document.getElementById('category-safety').style.display = name === 'safety' ? '' : 'none';
   if(name === 'todos') renderTodoHistory();
+  if(name === 'attendance') initAttendanceViewIfNeeded();
 }
 
 document.querySelectorAll('.nav-item').forEach(t => {
@@ -2802,6 +2991,506 @@ document.getElementById('closeDriveActivity').addEventListener('click', () => {
 });
 document.getElementById('driveActivityOverlay').addEventListener('click', (e) => {
   if(e.target.id === 'driveActivityOverlay') document.getElementById('driveActivityOverlay').classList.remove('show');
+});
+
+/* ===== 출퇴근관리 ===== */
+let attCurrentDate = todayDateOnly(); // 'YYYY-MM-DD'
+let attRecords = []; // 전체 attendance 기록 (모든 날짜)
+let attEmployees = []; // [{name, firstSeenDate, active}]
+let attCalYear = new Date().getFullYear();
+let attCalMonth = new Date().getMonth();
+let attCalSelectCallback = null;
+let attReviewDecideTarget = null; // 검토 모달에서 다루는 대상 기록(date+name 식별)
+let attInitialized = false;
+
+function initAttendanceViewIfNeeded(){
+  if(attInitialized) return;
+  attInitialized = true;
+  loadAttendanceData();
+}
+
+async function loadAttendanceData(){
+  try{
+    const [attRes, empRes] = await Promise.all([
+      fetch(SHEET_API_URL + '?type=attendance').then(r => r.json()),
+      fetch(SHEET_API_URL + '?type=employees').then(r => r.json())
+    ]);
+    attRecords = (attRes.ok && attRes.attendance) ? attRes.attendance : [];
+    attEmployees = (empRes.ok && empRes.employees) ? empRes.employees : [];
+  }catch(e){
+    attRecords = [];
+    attEmployees = [];
+  }
+  renderAttDateDisplay();
+  renderAttTable();
+  renderAttReviewPanel();
+}
+
+async function saveAttendanceForDate(dateStr, records){
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'replaceForDate', date: dateStr, records: records })
+    });
+  }catch(e){
+    showToast('출퇴근 기록 저장에 실패했습니다.');
+  }
+}
+
+async function updateOneAttendance(dateStr, name, patch){
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'updateOne', date: dateStr, name: name, patch: patch })
+    });
+  }catch(e){
+    showToast('수정 사항 저장에 실패했습니다.');
+  }
+}
+
+async function saveEmployees(){
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: attEmployees })
+    });
+  }catch(e){
+    showToast('직원 명단 저장에 실패했습니다.');
+  }
+}
+
+function ensureEmployeeExists(name, dateStr){
+  if(!attEmployees.find(e => e.name === name)){
+    attEmployees.push({ name: name, firstSeenDate: dateStr, active: 'true' });
+    return true;
+  }
+  return false;
+}
+
+/* ---- 카톡 txt 파싱 ---- */
+const ATT_DATE_LINE_RE = /^-+\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+const ATT_MSG_LINE_RE = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*([\d:]+)\]\s*(.*)$/;
+
+const ATT_IGNORE_KEYWORDS = ['출문보고', '입문보고', '교육공지', '안전교육', '공지', '점검'];
+const ATT_CHECKIN_KEYWORDS = ['출근', '츨근', '줄근', '출퐌', '출그ㄴ'];
+const ATT_CHECKOUT_KEYWORDS = ['퇴근', '연장퇴근', '퇴ㄴ근', '퉤근'];
+const ATT_LEAVE_KEYWORDS = ['휴무'];
+const ATT_AMBIGUOUS_KEYWORDS = ['조퇴', '???', '검토', 'ino오류', '오류', '미태깅', '반차'];
+// 이름으로 잘못 잡히기 쉬운 단어들(동사 어미, 출퇴근 관련 표현 등)
+const ATT_NAME_EXCLUDE = [
+  '출근','퇴근','휴무','신청','완료','오후','오전','연장','조퇴','오류','미태깅','검토','반차',
+  '보고','확인','합니다','했어요','됩니다','입니다','취소','진료','병원','탑승','출문',
+  '신청합니다','출근신청','출근보도','오후출근','주간퇴근','연장퇴근','휴무신청','조퇴신청'
+];
+
+function parseKakaoAttendance(text){
+  const lines = text.split(/\r?\n/);
+  let currentDate = null;
+  const results = []; // { date, name, type: 'checkIn'|'checkOut'|'leave', time, rawText, needsReview }
+
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i].trim();
+    if(!line) continue;
+
+    const dateMatch = line.match(ATT_DATE_LINE_RE);
+    if(dateMatch){
+      const y = dateMatch[1], m = pad(parseInt(dateMatch[2],10)), d = pad(parseInt(dateMatch[3],10));
+      currentDate = `${y}-${m}-${d}`;
+      continue;
+    }
+
+    const msgMatch = line.match(ATT_MSG_LINE_RE);
+    if(!msgMatch || !currentDate) continue;
+
+    const ampm = msgMatch[2] || '';
+    const timeRaw = msgMatch[3] || '';
+    const timeLabel = (ampm + ' ' + timeRaw).trim();
+    const body = msgMatch[4].trim();
+    if(!body) continue;
+    if(ATT_IGNORE_KEYWORDS.some(k => body.includes(k))) continue;
+
+    const isAmbiguous = ATT_AMBIGUOUS_KEYWORDS.some(k => body.includes(k));
+    const hasCheckIn = ATT_CHECKIN_KEYWORDS.some(k => body.includes(k));
+    const hasCheckOut = ATT_CHECKOUT_KEYWORDS.some(k => body.includes(k));
+    const hasLeave = ATT_LEAVE_KEYWORDS.some(k => body.includes(k));
+    if(!hasCheckIn && !hasCheckOut && !hasLeave) continue;
+
+    // 본문이 키워드뿐이라 이름이 없는 경우(예: "휴무신청"만 온 메시지)는
+    // 보낸사람 닉네임에서 이름을 추정 (검토 필요로 표시)
+    const bodyNoSpace = body.replace(/\s/g, '');
+    const isBareKeywordOnly = /^(휴무신청|출근|퇴근|휴무|연장퇴근|조퇴신청|출근신청)$/.test(bodyNoSpace);
+    const nameSource = isBareKeywordOnly ? msgMatch[1] : body;
+
+    // 메시지 본문(또는 보낸사람 닉네임)에서 이름 추출: 한글 이름 패턴(2~4자) 탐색
+    const nameMatches = nameSource.match(/[가-힣]{2,4}(?=\s|출근|퇴근|휴무|$)/g) || [];
+    const candidateNames = [...new Set(nameMatches)].filter(n => !ATT_NAME_EXCLUDE.includes(n));
+    if(candidateNames.length === 0) continue;
+
+    candidateNames.forEach(name => {
+      let type = null;
+      if(hasLeave) type = 'leave';
+      else if(hasCheckOut) type = 'checkOut';
+      else if(hasCheckIn) type = 'checkIn';
+      if(!type) return;
+      const oddCheckInSpelling = ATT_CHECKIN_KEYWORDS.slice(1).some(k => body.includes(k));
+      results.push({
+        date: currentDate,
+        name: name,
+        type: type,
+        time: timeLabel,
+        rawText: body,
+        needsReview: isAmbiguous || oddCheckInSpelling || isBareKeywordOnly
+      });
+    });
+  }
+  return results;
+}
+
+function buildAttendanceRecordsForDate(dateStr, parsedForDate){
+  // parsedForDate: 그 날짜에 해당하는 파싱 결과 배열
+  const byName = {};
+  parsedForDate.forEach(p => {
+    if(!byName[p.name]) byName[p.name] = { date: dateStr, name: p.name, checkIn: '', checkInTime: '', checkOut: '', checkOutTime: '', leave: '', status: 'confirmed', rawText: '', reviewDecision: '' };
+    const rec = byName[p.name];
+    if(p.type === 'checkIn'){ rec.checkIn = '출근완료'; rec.checkInTime = p.time || ''; if(p.needsReview){ rec.status = 'needs_review'; rec.rawText = p.rawText; } }
+    if(p.type === 'checkOut'){ rec.checkOut = '퇴근완료'; rec.checkOutTime = p.time || ''; if(p.needsReview){ rec.status = 'needs_review'; rec.rawText = p.rawText; } }
+    if(p.type === 'leave'){ rec.leave = '휴무'; if(p.needsReview){ rec.status = 'needs_review'; rec.rawText = p.rawText; } }
+  });
+  return Object.values(byName);
+}
+
+document.getElementById('attUploadBtn').addEventListener('click', () => {
+  document.getElementById('attFileInput').click();
+});
+let pendingUploadData = null; // 신규 인원 확인 대기 중인 업로드 데이터
+
+document.getElementById('attFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const parsed = parseKakaoAttendance(text);
+  if(parsed.length === 0){
+    showToast('인식할 수 있는 출퇴근 기록을 찾지 못했습니다.');
+    e.target.value = '';
+    return;
+  }
+
+  // 날짜별로 그룹화
+  const dateGroups = {};
+  parsed.forEach(p => {
+    if(!dateGroups[p.date]) dateGroups[p.date] = [];
+    dateGroups[p.date].push(p);
+  });
+
+  const recordsByDate = {};
+  const existingNames = new Set(attEmployees.map(e => e.name));
+  const newNameCandidates = new Map(); // name -> {firstSeenDate, count}
+
+  Object.keys(dateGroups).forEach(dateStr => {
+    const recordsForDate = buildAttendanceRecordsForDate(dateStr, dateGroups[dateStr]);
+    recordsByDate[dateStr] = recordsForDate;
+    recordsForDate.forEach(r => {
+      if(!existingNames.has(r.name)){
+        if(!newNameCandidates.has(r.name)) newNameCandidates.set(r.name, { firstSeenDate: dateStr, count: 0 });
+        newNameCandidates.get(r.name).count++;
+      }
+    });
+  });
+
+  e.target.value = '';
+  pendingUploadData = { recordsByDate };
+
+  if(newNameCandidates.size > 0){
+    openNewNameConfirmModal(newNameCandidates);
+  }else{
+    await commitAttendanceUpload(pendingUploadData, []);
+  }
+});
+
+function openNewNameConfirmModal(newNameCandidates){
+  const area = document.getElementById('newNameConfirmList');
+  const sorted = [...newNameCandidates.entries()].sort((a,b) => b[1].count - a[1].count);
+  area.innerHTML = sorted.map(([name, info]) => `
+    <label class="new-name-row">
+      <input type="checkbox" class="new-name-checkbox" value="${escapeHtml(name)}" checked>
+      <span class="att-row-name">${escapeHtml(name)}</span>
+      <span class="sub">${info.count}건 언급됨</span>
+    </label>
+  `).join('');
+  document.getElementById('newNameConfirmOverlay').classList.add('show');
+}
+
+document.getElementById('cancelNewNameConfirm').addEventListener('click', () => {
+  document.getElementById('newNameConfirmOverlay').classList.remove('show');
+  pendingUploadData = null;
+  showToast('업로드가 취소되었습니다.');
+});
+document.getElementById('newNameConfirmOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'newNameConfirmOverlay'){
+    document.getElementById('newNameConfirmOverlay').classList.remove('show');
+    pendingUploadData = null;
+  }
+});
+document.getElementById('confirmNewNameBtn').addEventListener('click', async () => {
+  const checked = Array.from(document.querySelectorAll('.new-name-checkbox:checked')).map(c => c.value);
+  const unchecked = Array.from(document.querySelectorAll('.new-name-checkbox:not(:checked)')).map(c => c.value);
+  document.getElementById('newNameConfirmOverlay').classList.remove('show');
+  if(!pendingUploadData) return;
+  await commitAttendanceUpload(pendingUploadData, unchecked);
+  pendingUploadData = null;
+});
+
+async function commitAttendanceUpload(data, excludedNames){
+  const excludeSet = new Set(excludedNames);
+  let employeesChanged = false;
+  const dateStrs = Object.keys(data.recordsByDate);
+
+  for(const dateStr of dateStrs){
+    let recordsForDate = data.recordsByDate[dateStr].filter(r => !excludeSet.has(r.name));
+    recordsForDate.forEach(r => { if(ensureEmployeeExists(r.name, dateStr)) employeesChanged = true; });
+    attRecords = attRecords.filter(r => r.date !== dateStr).concat(recordsForDate);
+    await saveAttendanceForDate(dateStr, recordsForDate);
+  }
+  if(employeesChanged) await saveEmployees();
+
+  showToast(`${dateStrs.length}개 날짜의 출퇴근 기록이 반영되었습니다.`);
+  renderAttTable();
+  renderAttReviewPanel();
+}
+
+/* ---- 날짜 표시/이동 ---- */
+function renderAttDateDisplay(){
+  const [y,m,d] = attCurrentDate.split('-').map(Number);
+  document.getElementById('attDateDisplay').textContent = `${y}년 ${m}월 ${d}일`;
+}
+
+document.getElementById('attPrevDayBtn').addEventListener('click', () => {
+  const d = new Date(attCurrentDate + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  attCurrentDate = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  renderAttDateDisplay();
+  renderAttTable();
+});
+document.getElementById('attNextDayBtn').addEventListener('click', () => {
+  const d = new Date(attCurrentDate + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  attCurrentDate = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  renderAttDateDisplay();
+  renderAttTable();
+});
+document.getElementById('attTodayBtn').addEventListener('click', () => {
+  attCurrentDate = todayDateOnly();
+  renderAttDateDisplay();
+  renderAttTable();
+});
+
+document.getElementById('attDateDisplay').addEventListener('click', () => {
+  const [y,m] = attCurrentDate.split('-').map(Number);
+  attCalYear = y; attCalMonth = m - 1;
+  renderAttCalendarPicker();
+  document.getElementById('attCalendarOverlay').classList.add('show');
+});
+document.getElementById('closeAttCalendar').addEventListener('click', () => {
+  document.getElementById('attCalendarOverlay').classList.remove('show');
+});
+document.getElementById('attCalendarOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attCalendarOverlay') document.getElementById('attCalendarOverlay').classList.remove('show');
+});
+document.getElementById('attCalPrevBtn').addEventListener('click', () => {
+  attCalMonth -= 1; if(attCalMonth < 0){ attCalMonth = 11; attCalYear -= 1; }
+  renderAttCalendarPicker();
+});
+document.getElementById('attCalNextBtn').addEventListener('click', () => {
+  attCalMonth += 1; if(attCalMonth > 11){ attCalMonth = 0; attCalYear += 1; }
+  renderAttCalendarPicker();
+});
+
+function renderAttCalendarPicker(){
+  document.getElementById('attCalTitle').textContent = `${attCalYear}년 ${attCalMonth+1}월`;
+  const grid = document.getElementById('attCalGrid');
+  const firstDay = new Date(attCalYear, attCalMonth, 1).getDay();
+  const daysInMonth = new Date(attCalYear, attCalMonth+1, 0).getDate();
+  let html = CAL_DOW.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
+  for(let d=1; d<=daysInMonth; d++){
+    const key = `${attCalYear}-${pad(attCalMonth+1)}-${pad(d)}`;
+    const cls = key === attCurrentDate ? 'cal-day selected' : 'cal-day';
+    html += `<button class="${cls}" data-date="${key}" style="min-height:40px;"><span class="cal-day-num">${d}</span></button>`;
+  }
+  grid.innerHTML = html;
+}
+document.getElementById('attCalGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.cal-day');
+  if(!btn || btn.classList.contains('empty')) return;
+  attCurrentDate = btn.dataset.date;
+  renderAttDateDisplay();
+  renderAttTable();
+  document.getElementById('attCalendarOverlay').classList.remove('show');
+});
+
+/* ---- 표 렌더링 ---- */
+function statusPillHtml(value, kind){
+  if(!value) return `<span class="att-status-pill empty-cell">-</span>`;
+  const cls = kind === 'in' ? 'in-done' : kind === 'out' ? 'out-done' : 'leave';
+  return `<span class="att-status-pill ${cls}">${escapeHtml(value)}</span>`;
+}
+
+function renderAttTable(){
+  const area = document.getElementById('attTableArea');
+  const todays = attRecords.filter(r => r.date === attCurrentDate);
+  const byName = {};
+  todays.forEach(r => { byName[r.name] = r; });
+
+  // 직원 명단 전체를 기준으로, 그날 기록이 없으면 '???'
+  const activeEmployees = attEmployees.filter(e => e.active !== 'false');
+  const allNames = [...new Set([...activeEmployees.map(e => e.name), ...todays.map(t => t.name)])];
+
+  if(allNames.length === 0){
+    area.innerHTML = '<div class="empty">표시할 직원이 없습니다. 대화내용(txt)을 업로드해주세요.</div>';
+    return;
+  }
+
+  let html = '<table class="att-table"><thead><tr><th>이름</th><th>출근</th><th>시간</th><th>퇴근</th><th>시간</th><th>휴무</th><th>비고</th></tr></thead><tbody>';
+  allNames.sort().forEach(name => {
+    const r = byName[name];
+    if(!r){
+      html += `<tr>
+        <td class="att-row-name">${escapeHtml(name)}</td>
+        <td colspan="5">${statusPillHtml('???', 'unknown')}</td>
+        <td><span class="sub">기록 없음</span></td>
+      </tr>`;
+      return;
+    }
+    const needsReview = r.status === 'needs_review';
+    const noteCell = needsReview
+      ? `<span class="att-needs-review" data-action="att-review-cell" data-date="${r.date}" data-name="${escapeHtml(name)}">검토 필요</span>`
+      : '<span class="sub">-</span>';
+    html += `<tr>
+      <td class="att-row-name">${escapeHtml(name)}</td>
+      <td>${statusPillHtml(r.checkIn, 'in')}</td>
+      <td>${r.checkInTime || ''}</td>
+      <td>${statusPillHtml(r.checkOut, 'out')}</td>
+      <td>${r.checkOutTime || ''}</td>
+      <td>${r.leave ? statusPillHtml(r.leave, 'leave') : '<span class="sub">-</span>'}</td>
+      <td>${noteCell}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  area.innerHTML = html;
+}
+
+document.getElementById('attTableArea').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action="att-review-cell"]');
+  if(!el) return;
+  openAttReviewDecide(el.dataset.date, el.dataset.name);
+});
+
+/* ---- 검토 모아보기 ---- */
+function renderAttReviewPanel(){
+  const reviewItems = attRecords.filter(r => r.status === 'needs_review');
+  const panel = document.getElementById('attReviewPanel');
+  document.getElementById('attReviewCount').textContent = reviewItems.length;
+  if(reviewItems.length === 0){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  const area = document.getElementById('attReviewListArea');
+  const sorted = [...reviewItems].sort((a,b) => b.date.localeCompare(a.date));
+  area.innerHTML = sorted.map(r => `
+    <div class="att-review-item">
+      <span><b>${escapeHtml(r.name)}</b> (${escapeHtml(r.date)}) — ${escapeHtml(r.rawText || '')}</span>
+      <button class="btn small" data-action="att-review-from-panel" data-date="${r.date}" data-name="${escapeHtml(r.name)}">검토하기</button>
+    </div>
+  `).join('');
+}
+document.getElementById('attReviewListArea').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action="att-review-from-panel"]');
+  if(!btn) return;
+  openAttReviewDecide(btn.dataset.date, btn.dataset.name);
+});
+
+function openAttReviewDecide(dateStr, name){
+  const rec = attRecords.find(r => r.date === dateStr && r.name === name);
+  if(!rec) return;
+  attReviewDecideTarget = { date: dateStr, name: name };
+  document.getElementById('attReviewDecideName').textContent = name;
+  document.getElementById('attReviewDecideDate').textContent = dateStr;
+  document.getElementById('attReviewDecideRaw').textContent = rec.rawText || '(원문 없음)';
+  document.getElementById('attReviewDecideSelect').value = 'checkIn';
+  document.getElementById('attReviewDecideOverlay').classList.add('show');
+}
+document.getElementById('cancelAttReviewDecide').addEventListener('click', () => {
+  document.getElementById('attReviewDecideOverlay').classList.remove('show');
+});
+document.getElementById('attReviewDecideOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attReviewDecideOverlay') document.getElementById('attReviewDecideOverlay').classList.remove('show');
+});
+document.getElementById('confirmAttReviewDecide').addEventListener('click', async () => {
+  if(!attReviewDecideTarget) return;
+  const { date, name } = attReviewDecideTarget;
+  const decision = document.getElementById('attReviewDecideSelect').value;
+  const rec = attRecords.find(r => r.date === date && r.name === name);
+  if(!rec){ document.getElementById('attReviewDecideOverlay').classList.remove('show'); return; }
+
+  const patch = { status: 'confirmed', reviewDecision: decision };
+  if(decision === 'checkIn') patch.checkIn = '출근완료';
+  if(decision === 'checkOut') patch.checkOut = '퇴근완료';
+  if(decision === 'leave') patch.leave = '휴무';
+  if(decision === 'ignore'){ patch.checkIn = rec.checkIn; patch.checkOut = rec.checkOut; patch.leave = rec.leave; }
+
+  Object.assign(rec, patch);
+  renderAttTable();
+  renderAttReviewPanel();
+  document.getElementById('attReviewDecideOverlay').classList.remove('show');
+  showToast('검토 결과가 반영되었습니다.');
+  await updateOneAttendance(date, name, patch);
+});
+
+/* ---- 이름 검색 ---- */
+let attSearchTimer = null;
+document.getElementById('attNameSearch').addEventListener('input', (e) => {
+  clearTimeout(attSearchTimer);
+  const keyword = e.target.value.trim();
+  attSearchTimer = setTimeout(() => {
+    if(!keyword){
+      document.getElementById('attSearchResultPanel').style.display = 'none';
+      return;
+    }
+    renderAttSearchResult(keyword);
+  }, 300);
+});
+
+function renderAttSearchResult(keyword){
+  const matched = attRecords.filter(r => r.name.includes(keyword)).sort((a,b) => b.date.localeCompare(a.date));
+  const panel = document.getElementById('attSearchResultPanel');
+  panel.style.display = '';
+  document.getElementById('attSearchResultName').textContent = keyword;
+  const area = document.getElementById('attSearchResultArea');
+  if(matched.length === 0){
+    area.innerHTML = '<div class="empty">일치하는 기록이 없습니다.</div>';
+    return;
+  }
+  area.innerHTML = matched.map(r => {
+    const parts = [];
+    if(r.checkIn) parts.push(`출근 ${r.checkIn}`);
+    if(r.checkOut) parts.push(`퇴근 ${r.checkOut}`);
+    if(r.leave) parts.push(r.leave);
+    if(parts.length === 0) parts.push('기록 없음');
+    return `<div class="att-history-item">
+      <span class="att-history-date">${escapeHtml(r.date)}</span>
+      <span>${escapeHtml(parts.join(' · '))}</span>
+      ${r.status === 'needs_review' ? '<span class="att-needs-review" data-action="att-review-cell" data-date="'+escapeHtml(r.date)+'" data-name="'+escapeHtml(r.name)+'">검토 필요</span>' : ''}
+    </div>`;
+  }).join('');
+}
+document.getElementById('attSearchResultArea').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action="att-review-cell"]');
+  if(!el) return;
+  openAttReviewDecide(el.dataset.date, el.dataset.name);
 });
 
 
