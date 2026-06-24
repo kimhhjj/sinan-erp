@@ -3520,6 +3520,23 @@ function ensureEmployeeExists(name, dateStr){
 }
 
 /* ===== 인원관리 카테고리 ===== */
+// 인원의 구역(A4/A5) 정보를 계산. emp.zone이 수동으로 지정되어 있으면 그 값을 그대로 쓰고,
+// 지정되어 있지 않으면 실제 출퇴근 기록을 보고 자동으로 추정한다.
+function getEmployeeZoneInfo(emp){
+  if(emp.zone === 'A4' || emp.zone === 'A5'){
+    return { zones: [emp.zone], manual: true };
+  }
+  const zoneSet = new Set(attRecords.filter(r => r.name === emp.name).map(r => getRecordZone(r)));
+  if(zoneSet.size === 0) return { zones: [], manual: false };
+  return { zones: [...zoneSet].sort(), manual: false };
+}
+
+function nextZoneCycle(current){
+  if(current === 'A4') return 'A5';
+  if(current === 'A5') return '';
+  return 'A4';
+}
+
 function renderPersonnelList(){
   const area = document.getElementById('personnelListArea');
   if(!area) return;
@@ -3532,9 +3549,15 @@ function renderPersonnelList(){
   area.innerHTML = sorted.map(emp => {
     const count = attRecords.filter(r => r.name === emp.name).length;
     const isActive = emp.active !== 'false';
+    const zoneInfo = getEmployeeZoneInfo(emp);
+    const zoneBadgeHtml = zoneInfo.zones.length > 0
+      ? zoneInfo.zones.map(z => `<span class="att-zone-badge zone-${z.toLowerCase()}">${z}${zoneInfo.manual ? '' : ' 자동'}</span>`).join('')
+      : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">미배정</span>`;
     return `<div class="att-emp-row">
       <span class="att-row-name">${escapeHtml(emp.name)}${isActive ? '' : ' <span class="sub">(비활성)</span>'}</span>
+      ${zoneBadgeHtml}
       <span class="sub">${count}건 기록</span>
+      <button type="button" class="btn small" data-action="personnel-zone-edit" data-name="${escapeHtml(emp.name)}">구역수정</button>
       <button type="button" class="btn small" data-action="personnel-toggle-active" data-name="${escapeHtml(emp.name)}">${isActive ? '비활성화' : '활성화'}</button>
       <button type="button" class="btn small" data-action="personnel-rename" data-name="${escapeHtml(emp.name)}">이름수정</button>
       <button type="button" class="btn small danger" data-action="personnel-delete" data-name="${escapeHtml(emp.name)}">삭제</button>
@@ -3559,6 +3582,18 @@ document.getElementById('personnelAddForm').addEventListener('submit', async (e)
 });
 
 document.getElementById('personnelListArea').addEventListener('click', async (e) => {
+  const zoneBtn = e.target.closest('button[data-action="personnel-zone-edit"]');
+  if(zoneBtn){
+    const emp = attEmployees.find(x => x.name === zoneBtn.dataset.name);
+    if(emp){
+      const next = nextZoneCycle(emp.zone || '');
+      emp.zone = next;
+      renderPersonnelList();
+      showToast(next ? `"${emp.name}"님 구역을 ${next}로 수동 지정했습니다.` : `"${emp.name}"님 구역을 자동(기록 기준)으로 되돌렸습니다.`);
+      await saveEmployees();
+    }
+    return;
+  }
   const toggleBtn = e.target.closest('button[data-action="personnel-toggle-active"]');
   if(toggleBtn){
     const emp = attEmployees.find(x => x.name === toggleBtn.dataset.name);
