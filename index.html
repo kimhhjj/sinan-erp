@@ -1154,6 +1154,7 @@
       <div class="nav-divider"></div>
       <p class="nav-label">카테고리</p>
       <button class="nav-item active" data-category="home">홈</button>
+      <button class="nav-item" data-category="personnel">인원관리</button>
       <button class="nav-item" data-category="attendance">출퇴근관리</button>
       <button class="nav-item" data-category="accident">사고근태방</button>
       <button class="nav-item" data-category="prevention">재발방지대책<span class="badge">준비중</span></button>
@@ -1200,13 +1201,33 @@
         </div>
       </div>
 
+      <!-- ===== 인원관리 카테고리 ===== -->
+      <div id="category-personnel" style="display:none;">
+        <div class="page-header">
+          <h1>인원관리</h1>
+        </div>
+
+        <div class="panel" style="margin-bottom:20px;">
+          <p class="block-title">인원 추가</p>
+          <form id="personnelAddForm" class="event-form">
+            <input type="text" id="personnel-add-name" placeholder="이름 (예: 홍길동)" maxlength="60" required>
+            <button type="submit" class="btn primary">+ 인원 추가</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <p class="block-title">등록된 인원 (<span class="count" id="personnelCountLabel">0</span>명)</p>
+          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">출퇴근관리는 여기 등록된 인원만 인식합니다. 대화내용에 새 이름이 나오면 신규로 자동 추가되지 않고, 여기서 먼저 등록해야 합니다.</p>
+          <div id="personnelListArea"><div class="loading">불러오는 중...</div></div>
+        </div>
+      </div>
+
       <!-- ===== 출퇴근관리 카테고리 ===== -->
       <div id="category-attendance" style="display:none;">
         <div class="page-header">
           <h1>출퇴근관리</h1>
           <div style="display:flex; gap:8px;">
             <button class="btn danger" id="attClearAllBtn">전체 삭제</button>
-            <button class="btn" id="attManageEmployeesBtn">직원 명단 관리</button>
             <input type="file" id="attFileInput" accept=".txt" style="display:none;">
             <button class="btn primary" id="attUploadBtn">+ 대화내용(txt) 업로드</button>
           </div>
@@ -1587,8 +1608,8 @@
 
 <div class="modal-overlay" id="newNameConfirmOverlay">
   <div class="modal" style="max-width:480px;">
-    <h3>새로운 이름이 발견되었습니다</h3>
-    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">직원 명단에 추가할 사람만 선택해주세요. 잘못 인식된 단어는 체크를 해제하세요.</p>
+    <h3>등록되지 않은 이름이 발견되었습니다</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">출퇴근관리는 인원관리에 등록된 인원만 인식합니다. 아래 이름을 기존 인원과 연결하거나 무시해주세요. 새 인원을 추가하려면 인원관리 화면에서 먼저 등록해주세요.</p>
     <div id="newNameConfirmList" style="max-height:340px; overflow-y:auto; margin-bottom:18px;"></div>
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelNewNameConfirm">취소</button>
@@ -1663,17 +1684,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="attEmployeeManageOverlay">
-  <div class="modal" style="max-width:480px;">
-    <h3>직원 명단 관리</h3>
-    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">삭제할 인원을 체크하고 삭제하세요. 그 사람의 모든 날짜 기록도 함께 삭제됩니다.</p>
-    <div id="attEmployeeManageList" style="max-height:380px; overflow-y:auto; margin-bottom:16px;"></div>
-    <div style="display:flex; justify-content:space-between; gap:8px;">
-      <button type="button" class="btn" id="closeAttEmployeeManage">닫기</button>
-      <button type="button" class="btn danger" id="confirmAttEmployeeDelete">선택 인원 삭제</button>
-    </div>
-  </div>
-</div>
 
 <div class="modal-overlay" id="attEditRowOverlay">
   <div class="modal" style="max-width:460px;">
@@ -1919,13 +1929,14 @@ document.querySelectorAll('.subtab').forEach(t => {
 function switchCategory(name){
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.category === name));
   document.getElementById('category-home').style.display = name === 'home' ? '' : 'none';
+  document.getElementById('category-personnel').style.display = name === 'personnel' ? '' : 'none';
   document.getElementById('category-attendance').style.display = name === 'attendance' ? '' : 'none';
   document.getElementById('category-accident').style.display = name === 'accident' ? '' : 'none';
   document.getElementById('category-todos').style.display = name === 'todos' ? '' : 'none';
   document.getElementById('category-prevention').style.display = name === 'prevention' ? '' : 'none';
   document.getElementById('category-safety').style.display = name === 'safety' ? '' : 'none';
   if(name === 'todos') renderTodoHistory();
-  if(name === 'attendance') initAttendanceViewIfNeeded();
+  if(name === 'attendance' || name === 'personnel') initAttendanceViewIfNeeded();
 }
 
 document.querySelectorAll('.nav-item').forEach(t => {
@@ -3380,6 +3391,8 @@ async function loadAttendanceData(){
   renderAttDateDisplay();
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
+  renderPersonnelList();
 }
 
 async function saveAttendanceForDate(dateStr, records){
@@ -3441,6 +3454,7 @@ document.getElementById('confirmAttClearAll').addEventListener('click', async ()
   attEmployees = [];
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
   document.getElementById('attSearchResultPanel').style.display = 'none';
   document.getElementById('attNameSearch').value = '';
   document.getElementById('attClearAllOverlay').classList.remove('show');
@@ -3481,6 +3495,7 @@ document.getElementById('confirmAttClearDate').addEventListener('click', async (
   attRecords = attRecords.filter(r => r.date !== targetDate);
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
   document.getElementById('attClearDateOverlay').classList.remove('show');
   showToast(`${targetDate} 기록을 삭제하는 중...`);
 
@@ -3504,65 +3519,85 @@ function ensureEmployeeExists(name, dateStr){
   return false;
 }
 
-/* ---- 직원 명단 관리 (개별 삭제) ---- */
-document.getElementById('attManageEmployeesBtn').addEventListener('click', () => {
-  renderAttEmployeeManageList();
-  document.getElementById('attEmployeeManageOverlay').classList.add('show');
-});
-document.getElementById('closeAttEmployeeManage').addEventListener('click', () => {
-  document.getElementById('attEmployeeManageOverlay').classList.remove('show');
-});
-document.getElementById('attEmployeeManageOverlay').addEventListener('click', (e) => {
-  if(e.target.id === 'attEmployeeManageOverlay') document.getElementById('attEmployeeManageOverlay').classList.remove('show');
-});
-
-function renderAttEmployeeManageList(){
-  const area = document.getElementById('attEmployeeManageList');
-  const activeEmployees = attEmployees.filter(e => e.active !== 'false').sort((a,b) => a.name.localeCompare(b.name));
-  if(activeEmployees.length === 0){
-    area.innerHTML = '<div class="empty">등록된 직원이 없습니다.</div>';
+/* ===== 인원관리 카테고리 ===== */
+function renderPersonnelList(){
+  const area = document.getElementById('personnelListArea');
+  if(!area) return;
+  const sorted = [...attEmployees].sort((a,b) => a.name.localeCompare(b.name));
+  document.getElementById('personnelCountLabel').textContent = sorted.filter(e => e.active !== 'false').length;
+  if(sorted.length === 0){
+    area.innerHTML = '<div class="empty">등록된 인원이 없습니다. 위에서 추가해주세요.</div>';
     return;
   }
-  area.innerHTML = activeEmployees.map(emp => {
+  area.innerHTML = sorted.map(emp => {
     const count = attRecords.filter(r => r.name === emp.name).length;
+    const isActive = emp.active !== 'false';
     return `<div class="att-emp-row">
-      <input type="checkbox" class="att-emp-del-checkbox" data-name="${escapeHtml(emp.name)}">
-      <span class="att-row-name">${escapeHtml(emp.name)}</span>
+      <span class="att-row-name">${escapeHtml(emp.name)}${isActive ? '' : ' <span class="sub">(비활성)</span>'}</span>
       <span class="sub">${count}건 기록</span>
+      <button type="button" class="btn small" data-action="personnel-toggle-active" data-name="${escapeHtml(emp.name)}">${isActive ? '비활성화' : '활성화'}</button>
+      <button type="button" class="btn small" data-action="personnel-rename" data-name="${escapeHtml(emp.name)}">이름수정</button>
+      <button type="button" class="btn small danger" data-action="personnel-delete" data-name="${escapeHtml(emp.name)}">삭제</button>
     </div>`;
   }).join('');
 }
 
-document.getElementById('confirmAttEmployeeDelete').addEventListener('click', async () => {
-  const checked = Array.from(document.querySelectorAll('.att-emp-del-checkbox:checked')).map(c => c.dataset.name);
-  if(checked.length === 0){
-    showToast('삭제할 인원을 선택해주세요.');
+document.getElementById('personnelAddForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('personnel-add-name');
+  const name = input.value.trim();
+  if(!name) return;
+  if(attEmployees.find(emp => emp.name === name)){
+    showToast('이미 등록된 이름입니다.');
     return;
   }
-  if(!confirm(`선택한 ${checked.length}명을 삭제할까요? 그 사람들의 모든 날짜 기록도 함께 삭제되며, 되돌릴 수 없습니다.`)) return;
+  attEmployees.push({ name: name, firstSeenDate: todayDateOnly(), active: 'true' });
+  input.value = '';
+  renderPersonnelList();
+  showToast(`"${name}"님을 추가했습니다.`);
+  await saveEmployees();
+});
 
-  const nameSet = new Set(checked);
-  attRecords = attRecords.filter(r => !nameSet.has(r.name));
-  attEmployees = attEmployees.filter(e => !nameSet.has(e.name));
-
-  renderAttTable();
-  renderAttReviewPanel();
-  document.getElementById('attEmployeeManageOverlay').classList.remove('show');
-  showToast(`${checked.length}명을 삭제했습니다.`);
-
-  try{
-    await fetch(SHEET_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'attendance', action: 'replaceAllRecords', records: attRecords })
-    });
-    await fetch(SHEET_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: attEmployees })
-    });
-  }catch(e){
-    showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+document.getElementById('personnelListArea').addEventListener('click', async (e) => {
+  const toggleBtn = e.target.closest('button[data-action="personnel-toggle-active"]');
+  if(toggleBtn){
+    const emp = attEmployees.find(x => x.name === toggleBtn.dataset.name);
+    if(emp){
+      emp.active = emp.active === 'false' ? 'true' : 'false';
+      renderPersonnelList();
+      await saveEmployees();
+    }
+    return;
+  }
+  const renameBtn = e.target.closest('button[data-action="personnel-rename"]');
+  if(renameBtn){
+    openAttRenameModal(renameBtn.dataset.name);
+    return;
+  }
+  const deleteBtn = e.target.closest('button[data-action="personnel-delete"]');
+  if(deleteBtn){
+    const name = deleteBtn.dataset.name;
+    const count = attRecords.filter(r => r.name === name).length;
+    const msg = count > 0
+      ? `"${name}"님을 삭제할까요? 출퇴근 기록 ${count}건도 함께 삭제되며, 되돌릴 수 없습니다.`
+      : `"${name}"님을 삭제할까요?`;
+    if(!confirm(msg)) return;
+    attEmployees = attEmployees.filter(x => x.name !== name);
+    attRecords = attRecords.filter(r => r.name !== name);
+    renderPersonnelList();
+    renderAttTable();
+    renderAttReviewPanel();
+    showToast(`"${name}"님을 삭제했습니다.`);
+    try{
+      await saveEmployees();
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'attendance', action: 'replaceAllRecords', records: attRecords })
+      });
+    }catch(err){
+      showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+    }
   }
 });
 
@@ -3824,36 +3859,26 @@ function findSimilarExistingEmployee(newName){
 function openNewNameConfirmModal(newNameCandidates){
   const area = document.getElementById('newNameConfirmList');
   const sorted = [...newNameCandidates.entries()].sort((a,b) => b[1].count - a[1].count);
+  const employeeOptions = [...attEmployees].sort((a,b) => a.name.localeCompare(b.name));
   area.innerHTML = sorted.map(([name, info]) => {
     const similar = findSimilarExistingEmployee(name);
-    const similarNote = similar
-      ? `<div class="new-name-similar">
-           <label>
-             <input type="checkbox" class="new-name-merge-checkbox" data-new-name="${escapeHtml(name)}" data-merge-to="${escapeHtml(similar.name)}">
-             "${escapeHtml(similar.name)}"님과 동일 인물 (이 이름으로 합치기)
-           </label>
-         </div>`
-      : '';
+    const optionsHtml = employeeOptions.map(emp =>
+      `<option value="${escapeHtml(emp.name)}" ${similar && similar.name === emp.name ? 'selected' : ''}>${escapeHtml(emp.name)}님으로 인식</option>`
+    ).join('');
     return `
-    <label class="new-name-row">
-      <input type="checkbox" class="new-name-checkbox" value="${escapeHtml(name)}" checked>
-      <span class="att-row-name">${escapeHtml(name)}</span>
-      <span class="sub">${info.count}건 언급됨</span>
-    </label>
-    ${similarNote}
-  `;
+    <div class="new-name-row" style="flex-direction:column; align-items:stretch; cursor:default;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="att-row-name">${escapeHtml(name)}</span>
+        <span class="sub">${info.count}건 언급됨</span>
+      </div>
+      <select class="new-name-action" data-name="${escapeHtml(name)}" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--ash); font-size:13px; background:#fff;">
+        <option value="__ignore__" ${similar ? '' : 'selected'}>무시 (이번 업로드에서만 제외, 인원으로 추가 안 함)</option>
+        ${optionsHtml}
+      </select>
+    </div>`;
   }).join('');
   document.getElementById('newNameConfirmOverlay').classList.add('show');
 }
-
-document.getElementById('newNameConfirmList').addEventListener('change', (e) => {
-  if(!e.target.classList.contains('new-name-merge-checkbox')) return;
-  const newName = e.target.dataset.newName;
-  const row = e.target.closest('.new-name-row') || e.target.closest('div').previousElementSibling;
-  // 병합 체크 시, 원래 항목 체크박스는 비활성화(추가 안 함 - 기존 이름으로 흡수되므로)
-  const itemCheckbox = document.querySelector(`.new-name-checkbox[value="${CSS.escape(newName)}"]`);
-  if(itemCheckbox) itemCheckbox.checked = !e.target.checked;
-});
 
 document.getElementById('cancelNewNameConfirm').addEventListener('click', () => {
   document.getElementById('newNameConfirmOverlay').classList.remove('show');
@@ -3867,15 +3892,35 @@ document.getElementById('newNameConfirmOverlay').addEventListener('click', (e) =
   }
 });
 document.getElementById('confirmNewNameBtn').addEventListener('click', async () => {
-  const checked = Array.from(document.querySelectorAll('.new-name-checkbox:checked')).map(c => c.value);
-  const unchecked = Array.from(document.querySelectorAll('.new-name-checkbox:not(:checked)')).map(c => c.value);
+  const selects = Array.from(document.querySelectorAll('.new-name-action'));
+  const excludedNames = [];
   const mergeMap = {};
-  document.querySelectorAll('.new-name-merge-checkbox:checked').forEach(cb => {
-    mergeMap[cb.dataset.newName] = cb.dataset.mergeTo;
+  const newAliases = [];
+  selects.forEach(sel => {
+    const name = sel.dataset.name;
+    const value = sel.value;
+    if(value === '__ignore__'){
+      excludedNames.push(name);
+    }else{
+      mergeMap[name] = value;
+      if(name !== value) newAliases.push({ alias: name, realName: value });
+    }
   });
   document.getElementById('newNameConfirmOverlay').classList.remove('show');
   if(!pendingUploadData) return;
-  await commitAttendanceUpload(pendingUploadData, unchecked, mergeMap);
+  await commitAttendanceUpload(pendingUploadData, excludedNames, mergeMap);
+  for(const entry of newAliases){
+    attAliasMap[entry.alias] = entry.realName;
+    try{
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'alias_map', action: 'append', entry })
+      });
+    }catch(e){
+      // 별명 저장에 실패해도 이번 업로드 반영은 유지됨 (다음 업로드 때 다시 확인 모달이 뜸)
+    }
+  }
   pendingUploadData = null;
 });
 
@@ -3928,6 +3973,7 @@ async function commitAttendanceUpload(data, excludedNames, mergeMap){
 
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
   showToast(`${dateStrs.length}개 날짜의 출퇴근 기록을 반영하는 중...`);
 
   // 2) 서버에는 딱 한 번의 요청으로 전체를 보냄 (날짜별 반복 요청 없음)
@@ -4240,6 +4286,7 @@ document.getElementById('confirmAttEditRow').addEventListener('click', async () 
 
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
   showToast(saveAlias ? `수정되었습니다. "${oldName}"은 앞으로 항상 "${newName}"으로 자동 변환됩니다.` : '수정되었습니다.');
 
   try{
@@ -4491,6 +4538,7 @@ async function mergeEmployeeNames(targetName, sourceNames, customMessage){
 
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
   showToast(customMessage || `"${sourceNames.join(', ')}"을(를) "${targetName}"으로 합쳤습니다.`);
 
   // 3) 서버에도 반영 (전체 교체 방식 - 합치기는 자주 일어나는 작업이 아니므로 OK)
@@ -4596,6 +4644,7 @@ document.getElementById('confirmAttReviewDecide').addEventListener('click', asyn
   Object.assign(rec, patch);
   renderAttTable();
   renderAttReviewPanel();
+  renderPersonnelList();
   document.getElementById('attReviewDecideOverlay').classList.remove('show');
   showToast('검토 결과가 반영되었습니다.');
   await updateOneAttendance(date, name, patch);
