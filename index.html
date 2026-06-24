@@ -615,13 +615,13 @@
     padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--ash); vertical-align: middle;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  table.att-table th:nth-child(1), table.att-table td:nth-child(1){ width: 22%; }
-  table.att-table th:nth-child(2), table.att-table td:nth-child(2){ width: 12%; }
-  table.att-table th:nth-child(3), table.att-table td:nth-child(3){ width: 11%; }
-  table.att-table th:nth-child(4), table.att-table td:nth-child(4){ width: 12%; }
-  table.att-table th:nth-child(5), table.att-table td:nth-child(5){ width: 11%; }
+  table.att-table th:nth-child(1), table.att-table td:nth-child(1){ width: 32%; }
+  table.att-table th:nth-child(2), table.att-table td:nth-child(2){ width: 10%; }
+  table.att-table th:nth-child(3), table.att-table td:nth-child(3){ width: 9%; }
+  table.att-table th:nth-child(4), table.att-table td:nth-child(4){ width: 10%; }
+  table.att-table th:nth-child(5), table.att-table td:nth-child(5){ width: 9%; }
   table.att-table th:nth-child(6), table.att-table td:nth-child(6){ width: 12%; }
-  table.att-table th:nth-child(7), table.att-table td:nth-child(7){ width: 20%; }
+  table.att-table th:nth-child(7), table.att-table td:nth-child(7){ width: 18%; }
   table.att-table td:nth-child(1){ white-space: normal; word-break: break-word; }
   table.att-table .att-status-pill{ max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
   table.att-table th{
@@ -696,6 +696,36 @@
     20%, 80%{ background: rgba(123,104,238,0.18); }
   }
   .att-row-flash{ animation: attRowFlash 2.2s ease; }
+  .att-summary-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .att-summary-row .block-title{ margin: 0; }
+  .att-summary-stats{
+    display:flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+  }
+  .att-summary-stats .stat-item{
+    display:flex;
+    align-items:baseline;
+    gap: 4px;
+    color: var(--smoke);
+  }
+  .att-summary-stats .stat-item b{
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--charcoal);
+  }
+  .att-summary-stats .stat-item.stat-leave b{ color: var(--violet); }
+  .att-summary-stats .stat-item.stat-review b{ color: var(--no); }
+  .att-summary-stats .stat-item.stat-unknown b{ color: var(--smoke); }
   .new-name-row{
     display:flex;
     align-items:center;
@@ -1107,7 +1137,10 @@
         </div>
 
         <div class="panel">
-          <p class="block-title">이 날짜 출퇴근 현황</p>
+          <div class="att-summary-row">
+            <p class="block-title">이 날짜 출퇴근 현황</p>
+            <div class="att-summary-stats" id="attSummaryStats"></div>
+          </div>
           <div id="attTableArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
@@ -3641,6 +3674,26 @@ function timeLabelToMinutes(timeLabel){
   return hh * 60 + mm;
 }
 
+function renderAttSummaryStats(allNames, byName){
+  const total = allNames.length;
+  let checkedIn = 0, onLeave = 0, needsReview = 0, unknown = 0;
+  allNames.forEach(name => {
+    const r = byName[name];
+    if(!r){ unknown++; return; }
+    if(r.status === 'needs_review') needsReview++;
+    if(r.checkIn) checkedIn++;
+    if(r.leave) onLeave++;
+  });
+  const area = document.getElementById('attSummaryStats');
+  area.innerHTML = `
+    <span class="stat-item"><b>${total}</b>명 총원</span>
+    <span class="stat-item"><b>${checkedIn}</b>명 출근</span>
+    <span class="stat-item stat-leave"><b>${onLeave}</b>명 휴무</span>
+    <span class="stat-item stat-unknown"><b>${unknown}</b>명 미확인</span>
+    <span class="stat-item stat-review"><b>${needsReview}</b>건 검토필요</span>
+  `;
+}
+
 function renderAttTable(){
   const area = document.getElementById('attTableArea');
   const todays = attRecords.filter(r => r.date === attCurrentDate);
@@ -3650,6 +3703,8 @@ function renderAttTable(){
   // 직원 명단 전체를 기준으로, 그날 기록이 없으면 '???'
   const activeEmployees = attEmployees.filter(e => e.active !== 'false');
   const allNames = [...new Set([...activeEmployees.map(e => e.name), ...todays.map(t => t.name)])];
+
+  renderAttSummaryStats(allNames, byName);
 
   if(allNames.length === 0){
     area.innerHTML = '<div class="empty">표시할 직원이 없습니다. 대화내용(txt)을 업로드해주세요.</div>';
