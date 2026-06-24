@@ -637,11 +637,11 @@
     font-weight: 800;
     padding: 1px 6px;
     border-radius: 4px;
-    background: var(--shadow-tint-blue);
-    color: var(--blue);
     margin-left: 6px;
     vertical-align: middle;
   }
+  .att-zone-badge.zone-a4{ background: rgba(123,104,238,0.14); color: var(--violet); }
+  .att-zone-badge.zone-a5{ background: var(--shadow-tint-blue); color: var(--blue); }
   .att-emp-row{
     display:flex;
     align-items:center;
@@ -3902,7 +3902,9 @@ async function commitAttendanceUpload(data, excludedNames, mergeMap){
     });
   });
   const dateSet = new Set(dateStrs);
-  attRecords = attRecords.filter(r => !dateSet.has(r.date)).concat(allNewRecords);
+  const uploadZone = data.zone || 'A5';
+  // 같은 날짜라도 다른 구역(zone)의 기존 기록은 보존해야 함 - 날짜+구역 조합으로만 교체
+  attRecords = attRecords.filter(r => !(dateSet.has(r.date) && getRecordZone(r) === uploadZone)).concat(allNewRecords);
 
   renderAttTable();
   renderAttReviewPanel();
@@ -4077,7 +4079,7 @@ function renderAttTable(){
   let html = '<table class="att-table"><thead><tr><th>이름</th><th>출근</th><th>시간</th><th>퇴근</th><th>시간</th><th>휴무</th><th>비고</th><th></th></tr></thead><tbody>';
   sortedNames.forEach(name => {
     const r = byName[name];
-    const zoneBadge = attCurrentZone === 'all' && r ? `<span class="att-zone-badge">${escapeHtml(getRecordZone(r))}</span>` : '';
+    const zoneBadge = attCurrentZone === 'all' && r ? `<span class="att-zone-badge zone-${getRecordZone(r).toLowerCase()}">${escapeHtml(getRecordZone(r))}</span>` : '';
     const editBtn = `<button class="btn small" data-action="att-edit-row" data-name="${escapeHtml(name)}">수정</button>`;
     if(!r){
       html += `<tr>
