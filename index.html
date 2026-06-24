@@ -657,13 +657,14 @@
     padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--ash); vertical-align: middle;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  table.att-table th:nth-child(1), table.att-table td:nth-child(1){ width: 32%; }
-  table.att-table th:nth-child(2), table.att-table td:nth-child(2){ width: 10%; }
-  table.att-table th:nth-child(3), table.att-table td:nth-child(3){ width: 9%; }
-  table.att-table th:nth-child(4), table.att-table td:nth-child(4){ width: 10%; }
-  table.att-table th:nth-child(5), table.att-table td:nth-child(5){ width: 9%; }
-  table.att-table th:nth-child(6), table.att-table td:nth-child(6){ width: 12%; }
-  table.att-table th:nth-child(7), table.att-table td:nth-child(7){ width: 18%; }
+  table.att-table th:nth-child(1), table.att-table td:nth-child(1){ width: 27%; }
+  table.att-table th:nth-child(2), table.att-table td:nth-child(2){ width: 9%; }
+  table.att-table th:nth-child(3), table.att-table td:nth-child(3){ width: 8%; }
+  table.att-table th:nth-child(4), table.att-table td:nth-child(4){ width: 9%; }
+  table.att-table th:nth-child(5), table.att-table td:nth-child(5){ width: 8%; }
+  table.att-table th:nth-child(6), table.att-table td:nth-child(6){ width: 11%; }
+  table.att-table th:nth-child(7), table.att-table td:nth-child(7){ width: 16%; }
+  table.att-table th:nth-child(8), table.att-table td:nth-child(8){ width: 12%; }
   table.att-table td:nth-child(1){ white-space: normal; word-break: break-word; }
   table.att-table .att-status-pill{ max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
   table.att-table th{
@@ -1670,6 +1671,62 @@
     <div style="display:flex; justify-content:space-between; gap:8px;">
       <button type="button" class="btn" id="closeAttEmployeeManage">닫기</button>
       <button type="button" class="btn danger" id="confirmAttEmployeeDelete">선택 인원 삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attEditRowOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h3>출퇴근 기록 수정</h3>
+    <input type="hidden" id="att-edit-old-name">
+    <div class="field" style="margin-bottom:12px;">
+      <label for="att-edit-name">이름</label>
+      <input type="text" id="att-edit-name" maxlength="60">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="att-edit-zone">구역</label>
+      <select id="att-edit-zone">
+        <option value="A4">A4</option>
+        <option value="A5">A5</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>출근</label>
+      <div style="display:flex; gap:8px;">
+        <select id="att-edit-checkin" style="flex:1;">
+          <option value="">출근 안 함</option>
+          <option value="출근완료">출근완료</option>
+        </select>
+        <input type="text" id="att-edit-checkin-time" placeholder="07:30" style="width:100px;">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>퇴근</label>
+      <div style="display:flex; gap:8px;">
+        <select id="att-edit-checkout" style="flex:1;">
+          <option value="">퇴근 안 함</option>
+          <option value="퇴근완료">퇴근완료</option>
+        </select>
+        <input type="text" id="att-edit-checkout-time" placeholder="17:30" style="width:100px;">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>휴무</label>
+      <div style="display:flex; gap:8px;">
+        <select id="att-edit-leave" style="flex:1;">
+          <option value="">휴무 아님</option>
+          <option value="휴무">휴무</option>
+        </select>
+        <input type="text" id="att-edit-leave-time" placeholder="07:30" style="width:100px;">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="att-edit-note">비고 (검토 필요 표시 등 참고용 메모)</label>
+      <textarea id="att-edit-note" placeholder="예) 수동 확인 완료"></textarea>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelAttEditRow">취소</button>
+      <button type="button" class="btn primary" id="confirmAttEditRow">저장</button>
     </div>
   </div>
 </div>
@@ -4017,15 +4074,17 @@ function renderAttTable(){
     return a.localeCompare(b);
   });
 
-  let html = '<table class="att-table"><thead><tr><th>이름</th><th>출근</th><th>시간</th><th>퇴근</th><th>시간</th><th>휴무</th><th>비고</th></tr></thead><tbody>';
+  let html = '<table class="att-table"><thead><tr><th>이름</th><th>출근</th><th>시간</th><th>퇴근</th><th>시간</th><th>휴무</th><th>비고</th><th></th></tr></thead><tbody>';
   sortedNames.forEach(name => {
     const r = byName[name];
     const zoneBadge = attCurrentZone === 'all' && r ? `<span class="att-zone-badge">${escapeHtml(getRecordZone(r))}</span>` : '';
+    const editBtn = `<button class="btn small" data-action="att-edit-row" data-name="${escapeHtml(name)}">수정</button>`;
     if(!r){
       html += `<tr>
         <td class="att-row-name">${escapeHtml(name)}</td>
         <td colspan="5">${statusPillHtml('???', 'unknown')}</td>
         <td><span class="sub">기록 없음</span></td>
+        <td>${editBtn}</td>
       </tr>`;
       return;
     }
@@ -4040,6 +4099,7 @@ function renderAttTable(){
         <td class="att-row-name">${escapeHtml(name)}${zoneBadge}</td>
         <td colspan="5">${statusPillHtml('확정 대기 (출근·휴무 정보 충돌)', 'unknown')}</td>
         <td>${noteCell}</td>
+        <td>${editBtn}</td>
       </tr>`;
       return;
     }
@@ -4051,6 +4111,7 @@ function renderAttTable(){
       <td>${r.checkOutTime || ''}</td>
       <td>${r.leave ? statusPillHtml('휴무' + (r.leaveTime ? ` ${r.leaveTime}` : ''), 'leave') : '<span class="sub">-</span>'}</td>
       <td>${noteCell}</td>
+      <td>${editBtn}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -4066,9 +4127,101 @@ document.getElementById('attZoneTabs').addEventListener('click', (e) => {
 });
 
 document.getElementById('attTableArea').addEventListener('click', (e) => {
+  const editBtn = e.target.closest('[data-action="att-edit-row"]');
+  if(editBtn){
+    openAttEditRow(editBtn.dataset.name);
+    return;
+  }
   const el = e.target.closest('[data-action="att-review-cell"]');
   if(!el) return;
   openAttReviewDecide(el.dataset.date, el.dataset.name);
+});
+
+/* ---- 출퇴근 기록 수정 (이름/구역/출근/퇴근/휴무/비고 한번에) ---- */
+function openAttEditRow(name){
+  let rec = attRecords.find(r => r.date === attCurrentDate && r.name === name);
+  document.getElementById('att-edit-old-name').value = name;
+  document.getElementById('att-edit-name').value = name;
+  document.getElementById('att-edit-zone').value = rec ? getRecordZone(rec) : (attCurrentZone !== 'all' ? attCurrentZone : 'A5');
+  document.getElementById('att-edit-checkin').value = rec && rec.checkIn ? '출근완료' : '';
+  document.getElementById('att-edit-checkin-time').value = rec ? (rec.checkInTime || '') : '';
+  document.getElementById('att-edit-checkout').value = rec && rec.checkOut ? '퇴근완료' : '';
+  document.getElementById('att-edit-checkout-time').value = rec ? (rec.checkOutTime || '') : '';
+  document.getElementById('att-edit-leave').value = rec && rec.leave ? '휴무' : '';
+  document.getElementById('att-edit-leave-time').value = rec ? (rec.leaveTime || '') : '';
+  document.getElementById('att-edit-note').value = rec ? (rec.reviewDecision === 'manual_note' ? (rec.manualNote || '') : '') : '';
+  document.getElementById('attEditRowOverlay').classList.add('show');
+}
+document.getElementById('cancelAttEditRow').addEventListener('click', () => {
+  document.getElementById('attEditRowOverlay').classList.remove('show');
+});
+document.getElementById('attEditRowOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attEditRowOverlay') document.getElementById('attEditRowOverlay').classList.remove('show');
+});
+document.getElementById('confirmAttEditRow').addEventListener('click', async () => {
+  const oldName = document.getElementById('att-edit-old-name').value;
+  const newName = document.getElementById('att-edit-name').value.trim();
+  if(!newName){
+    showToast('이름을 입력해주세요.');
+    return;
+  }
+  const zone = document.getElementById('att-edit-zone').value;
+  const checkIn = document.getElementById('att-edit-checkin').value;
+  const checkInTime = document.getElementById('att-edit-checkin-time').value.trim();
+  const checkOut = document.getElementById('att-edit-checkout').value;
+  const checkOutTime = document.getElementById('att-edit-checkout-time').value.trim();
+  const leave = document.getElementById('att-edit-leave').value;
+  const leaveTime = document.getElementById('att-edit-leave-time').value.trim();
+  const note = document.getElementById('att-edit-note').value.trim();
+
+  document.getElementById('attEditRowOverlay').classList.remove('show');
+
+  let rec = attRecords.find(r => r.date === attCurrentDate && r.name === oldName);
+  if(!rec){
+    rec = { date: attCurrentDate, name: oldName, zone: '', checkIn:'', checkInTime:'', checkOut:'', checkOutTime:'', leave:'', leaveTime:'', status:'confirmed', rawText:'', reviewDecision:'' };
+    attRecords.push(rec);
+  }
+  rec.name = newName;
+  rec.zone = zone;
+  rec.checkIn = checkIn;
+  rec.checkInTime = checkIn ? checkInTime : '';
+  rec.checkOut = checkOut;
+  rec.checkOutTime = checkOut ? checkOutTime : '';
+  rec.leave = leave;
+  rec.leaveTime = leave ? leaveTime : '';
+  rec.status = 'confirmed'; // 수동으로 직접 고쳤으니 검토 필요 상태는 해제
+  if(note){
+    rec.reviewDecision = 'manual_note';
+    rec.manualNote = note;
+  }
+
+  // 이름이 바뀌었으면 직원 명단도 갱신
+  if(newName !== oldName){
+    ensureEmployeeExists(newName, attCurrentDate);
+    // 그 사람의 다른 날짜 기록 이름은 그대로 유지 (오늘 이 행만 이름이 바뀐 것으로 처리)
+  }
+  if(!attEmployees.find(e => e.name === newName)){
+    ensureEmployeeExists(newName, attCurrentDate);
+  }
+
+  renderAttTable();
+  renderAttReviewPanel();
+  showToast('수정되었습니다.');
+
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'replaceAllRecords', records: attRecords })
+    });
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: attEmployees })
+    });
+  }catch(e){
+    showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+  }
 });
 
 /* ---- 검토 모아보기 ---- */
