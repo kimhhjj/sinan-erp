@@ -1232,6 +1232,7 @@
             </div>
             <button type="button" class="btn small" id="personnelZoneBulkAssignBtn">출퇴근 기록 기준 구역 일괄배정</button>
           </div>
+          <input type="text" id="personnelSearchInput" placeholder="이름으로 검색" style="max-width:280px; margin-bottom:14px;">
           <div id="personnelListArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
@@ -1753,12 +1754,12 @@
       </select>
     </div>
     <div class="field" style="margin-bottom:12px;">
+      <label for="personnel-profile-trade">직공</label>
+      <input type="text" id="personnel-profile-trade" placeholder="예: 형틀목공, 철근공, 비계공">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
       <label for="personnel-profile-career">경력</label>
-      <select id="personnel-profile-career">
-        <option value="">선택안함</option>
-        <option value="건설업">건설업</option>
-        <option value="하이테크">하이테크</option>
-      </select>
+      <input type="text" id="personnel-profile-career" placeholder="예: 건설업 10년차, 하이테크 3년차">
     </div>
     <div class="field" style="margin-bottom:18px;">
       <label for="personnel-profile-note">특이사항</label>
@@ -3615,6 +3616,7 @@ let pendingPersonnelZoneEditName = null;
 let attTeams = [];
 let personnelTeamFilter = ''; // '' = 전체, 그 외에는 팀 이름으로 필터링
 let pendingPersonnelTeamMoveName = null;
+let personnelSearchQuery = '';
 
 function refreshTeamsFromEmployees(){
   const set = new Set(attTeams);
@@ -3644,6 +3646,10 @@ function renderPersonnelList(){
   if(personnelTeamFilter){
     sorted = sorted.filter(e => e.team === personnelTeamFilter);
   }
+  if(personnelSearchQuery){
+    const q = personnelSearchQuery.toLowerCase();
+    sorted = sorted.filter(e => e.name.toLowerCase().includes(q));
+  }
   document.getElementById('personnelCountLabel').textContent = sorted.filter(e => e.active !== 'false').length;
   if(sorted.length === 0){
     area.innerHTML = '<div class="empty">표시할 인원이 없습니다.</div>';
@@ -3659,7 +3665,7 @@ function renderPersonnelList(){
       ? `<span class="att-zone-badge" style="background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35);">${escapeHtml(emp.team)}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">팀미배정</span>`;
     return `<div class="att-emp-row">
-      <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-decoration:underline; text-decoration-style:dotted;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+      <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
       ${zoneBadgeHtml}
       ${teamBadgeHtml}
       <span class="sub">${count}건 기록</span>
@@ -3671,6 +3677,11 @@ function renderPersonnelList(){
     </div>`;
   }).join('');
 }
+
+document.getElementById('personnelSearchInput').addEventListener('input', (e) => {
+  personnelSearchQuery = e.target.value.trim();
+  renderPersonnelList();
+});
 
 document.getElementById('personnelAddForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -3876,6 +3887,7 @@ function openPersonnelProfileModal(name){
   document.getElementById('personnel-profile-phone').value = emp.phone || '';
   document.getElementById('personnel-profile-address').value = emp.address || '';
   document.getElementById('personnel-profile-blood').value = emp.bloodType || '';
+  document.getElementById('personnel-profile-trade').value = emp.trade || '';
   document.getElementById('personnel-profile-career').value = emp.career || '';
   document.getElementById('personnel-profile-note').value = emp.note || '';
   document.getElementById('personnelProfileOverlay').classList.add('show');
@@ -3895,7 +3907,8 @@ document.getElementById('savePersonnelProfile').addEventListener('click', async 
   emp.phone = document.getElementById('personnel-profile-phone').value.trim();
   emp.address = document.getElementById('personnel-profile-address').value.trim();
   emp.bloodType = document.getElementById('personnel-profile-blood').value;
-  emp.career = document.getElementById('personnel-profile-career').value;
+  emp.trade = document.getElementById('personnel-profile-trade').value.trim();
+  emp.career = document.getElementById('personnel-profile-career').value.trim();
   emp.note = document.getElementById('personnel-profile-note').value.trim();
   closePersonnelProfile();
   showToast(`"${emp.name}"님 프로필을 저장했습니다.`);
