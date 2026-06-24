@@ -4082,7 +4082,7 @@ function renderAttTable(){
     const zoneBadge = attCurrentZone === 'all' && r ? `<span class="att-zone-badge zone-${getRecordZone(r).toLowerCase()}">${escapeHtml(getRecordZone(r))}</span>` : '';
     const editBtn = `<button class="btn small" data-action="att-edit-row" data-name="${escapeHtml(name)}">수정</button>`;
     if(!r){
-      html += `<tr>
+      html += `<tr data-row-name="${escapeHtml(name)}">
         <td class="att-row-name">${escapeHtml(name)}</td>
         <td colspan="5">${statusPillHtml('???', 'unknown')}</td>
         <td><span class="sub">기록 없음</span></td>
@@ -4097,7 +4097,7 @@ function renderAttTable(){
       : '<span class="sub">-</span>';
     if(hasConflict){
       // 출근/휴무가 충돌하는 상태에서는 둘 다 보여주지 않고, 확정 전임을 명확히 표시
-      html += `<tr>
+      html += `<tr data-row-name="${escapeHtml(name)}">
         <td class="att-row-name">${escapeHtml(name)}${zoneBadge}</td>
         <td colspan="5">${statusPillHtml('확정 대기 (출근·휴무 정보 충돌)', 'unknown')}</td>
         <td>${noteCell}</td>
@@ -4105,7 +4105,7 @@ function renderAttTable(){
       </tr>`;
       return;
     }
-    html += `<tr>
+    html += `<tr data-row-name="${escapeHtml(name)}">
       <td class="att-row-name">${escapeHtml(name)}${zoneBadge}</td>
       <td>${statusPillHtml(r.checkIn ? '출근' : '', 'in')}</td>
       <td>${r.checkInTime || ''}</td>
@@ -4200,7 +4200,11 @@ document.getElementById('confirmAttEditRow').addEventListener('click', async () 
   // 이름이 바뀌었으면 직원 명단도 갱신
   if(newName !== oldName){
     ensureEmployeeExists(newName, attCurrentDate);
-    // 그 사람의 다른 날짜 기록 이름은 그대로 유지 (오늘 이 행만 이름이 바뀐 것으로 처리)
+    // 다른 날짜에도 oldName으로 된 기록이 남아있는지 확인 - 없으면 직원 명단에서 oldName 제거
+    const oldNameStillUsed = attRecords.some(r => r.name === oldName);
+    if(!oldNameStillUsed){
+      attEmployees = attEmployees.filter(e => e.name !== oldName);
+    }
   }
   if(!attEmployees.find(e => e.name === newName)){
     ensureEmployeeExists(newName, attCurrentDate);
@@ -4613,20 +4617,22 @@ document.getElementById('attSearchResultArea').addEventListener('click', (e) => 
 
 function gotoAttDateAndHighlight(dateStr, name){
   attCurrentDate = dateStr;
+  // 구역 필터가 'all'이 아니면, 다른 구역에 있을 수도 있으니 전체 보기로 전환
+  if(attCurrentZone !== 'all'){
+    attCurrentZone = 'all';
+    document.querySelectorAll('.att-zone-tab').forEach(t => t.classList.toggle('active', t.dataset.zone === 'all'));
+  }
   renderAttDateDisplay();
   renderAttTable();
   // 표 영역으로 스크롤 이동 후, 해당 이름의 행을 잠깐 강조
   setTimeout(() => {
-    const rows = document.querySelectorAll('#attTableArea tbody tr');
-    let targetRow = null;
-    rows.forEach(row => {
-      const nameCell = row.querySelector('.att-row-name');
-      if(nameCell && nameCell.textContent === name) targetRow = row;
-    });
+    const targetRow = document.querySelector(`#attTableArea tbody tr[data-row-name="${CSS.escape(name)}"]`);
     if(targetRow){
       targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
       targetRow.classList.add('att-row-flash');
       setTimeout(() => targetRow.classList.remove('att-row-flash'), 2200);
+    }else{
+      showToast('해당 날짜의 표에서 이 이름을 찾지 못했습니다.');
     }
   }, 50);
 }
