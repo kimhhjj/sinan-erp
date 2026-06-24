@@ -705,6 +705,26 @@
     justify-content: flex-end;
     margin-top: 8px;
   }
+  .att-dup-detail{
+    margin: 0 0 8px 26px;
+    padding: 8px 10px;
+    background: var(--canvas);
+    border-radius: var(--radius-btn);
+    border: 1px solid var(--ash);
+  }
+  .att-dup-detail-item{
+    padding: 6px 0;
+    border-bottom: 1px solid var(--ash);
+    font-size: 12px;
+  }
+  .att-dup-detail-item:last-child{ border-bottom: none; }
+  .att-dup-detail-top{ color: var(--charcoal); margin-bottom: 3px; }
+  .att-dup-detail-msg{
+    color: var(--smoke);
+    font-size: 11.5px;
+    padding-left: 8px;
+    word-break: break-word;
+  }
   .att-history-item{
     padding: 10px 4px;
     border-bottom: 1px solid var(--ash);
@@ -1553,6 +1573,28 @@
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelAttClearDate">취소</button>
       <button type="button" class="btn danger" id="confirmAttClearDate">이 날짜 삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attRenameOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h3>이름 수정</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">
+      이 이름의 <b>모든 날짜 기록</b>과 직원 명단이 새 이름으로 함께 변경됩니다.
+    </p>
+    <input type="hidden" id="att-rename-old">
+    <div class="field" style="margin-bottom:14px;">
+      <label>기존 이름</label>
+      <p class="att-raw-text" id="attRenameOldLabel" style="margin:0;"></p>
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="att-rename-new">새 이름</label>
+      <input type="text" id="att-rename-new" placeholder="예) 홍길동(991230)" maxlength="60">
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelAttRename">취소</button>
+      <button type="button" class="btn primary" id="confirmAttRename">변경</button>
     </div>
   </div>
 </div>
@@ -3162,6 +3204,7 @@ document.getElementById('driveActivityOverlay').addEventListener('click', (e) =>
 let attCurrentDate = todayDateOnly(); // 'YYYY-MM-DD'
 let attRecords = []; // 전체 attendance 기록 (모든 날짜)
 let attEmployees = []; // [{name, firstSeenDate, active}]
+let attDupIgnoreList = []; // ['name1|name2', ...] - "다른 인물로 분류"한 이름 조합의 key 목록
 let attCalYear = new Date().getFullYear();
 let attCalMonth = new Date().getMonth();
 let attCalSelectCallback = null;
@@ -3176,15 +3219,18 @@ function initAttendanceViewIfNeeded(){
 
 async function loadAttendanceData(){
   try{
-    const [attRes, empRes] = await Promise.all([
+    const [attRes, empRes, dupRes] = await Promise.all([
       fetch(SHEET_API_URL + '?type=attendance').then(r => r.json()),
-      fetch(SHEET_API_URL + '?type=employees').then(r => r.json())
+      fetch(SHEET_API_URL + '?type=employees').then(r => r.json()),
+      fetch(SHEET_API_URL + '?type=dup_ignore').then(r => r.json())
     ]);
     attRecords = (attRes.ok && attRes.attendance) ? attRes.attendance : [];
     attEmployees = (empRes.ok && empRes.employees) ? empRes.employees : [];
+    attDupIgnoreList = (dupRes.ok && dupRes.dup_ignore) ? dupRes.dup_ignore.map(d => d.namesKey) : [];
   }catch(e){
     attRecords = [];
     attEmployees = [];
+    attDupIgnoreList = [];
   }
   renderAttDateDisplay();
   renderAttTable();
@@ -3877,6 +3923,10 @@ function renderAttReviewPanel(){
 }
 
 /* ---- 중복 의심 인물 그룹화 및 합치기 ---- */
+function groupKey(names){
+  return [...names].sort().join('|');
+}
+
 function findDuplicateGroups(){
   const names = attEmployees.filter(e => e.active !== 'false').map(e => e.name);
   const used = new Set();
@@ -3893,7 +3943,9 @@ function findDuplicateGroups(){
       fullGroup.forEach(n => used.add(n));
       // 가장 짧은(순수 이름에 가까운) 것을 대표 이름으로 추천
       fullGroup.sort((a, b) => a.length - b.length);
-      groups.push(fullGroup);
+      if(!attDupIgnoreList.includes(groupKey(fullGroup))){
+        groups.push(fullGroup);
+      }
     }
   });
   return groups;
@@ -3917,17 +3969,73 @@ function renderAttDupPanel(){
         <input type="checkbox" class="att-dup-checkbox" data-group="${gi}" data-name="${escapeHtml(name)}" checked>
         <span class="att-row-name">${escapeHtml(name)}</span>
         <span class="sub">${count}건 기록</span>
-      </div>`;
+        <button class="btn small" data-action="att-dup-toggle-detail" data-name="${escapeHtml(name)}">보기</button>
+        <button class="btn small" data-action="att-dup-rename" data-name="${escapeHtml(name)}">이름수정</button>
+      </div>
+      <div class="att-dup-detail" data-name-detail="${escapeHtml(name)}" style="display:none;"></div>`;
     }).join('');
-    return `<div class="att-dup-group" data-group="${gi}" data-primary="${escapeHtml(primary)}">
+    return `<div class="att-dup-group" data-group="${gi}" data-primary="${escapeHtml(primary)}" data-names="${escapeHtml(JSON.stringify(group))}">
       <p class="att-dup-group-title">아래 이름들이 같은 사람일 수 있습니다. 합칠 이름만 체크하고, 대표 이름을 선택하세요.</p>
       ${candidatesHtml}
       <div class="att-dup-actions">
+        <button class="btn small" data-action="att-dup-not-same" data-group="${gi}">다른 인물로 분류</button>
         <button class="btn small primary" data-action="att-dup-merge" data-group="${gi}">선택한 항목 합치기</button>
       </div>
     </div>`;
   }).join('');
 }
+
+document.getElementById('attDupListArea').addEventListener('click', async (e) => {
+  const notSameBtn = e.target.closest('button[data-action="att-dup-not-same"]');
+  if(notSameBtn){
+    const groupEl = document.querySelector(`.att-dup-group[data-group="${notSameBtn.dataset.group}"]`);
+    const names = JSON.parse(groupEl.dataset.names);
+    const key = groupKey(names);
+    attDupIgnoreList.push(key);
+    renderAttDupPanel();
+    showToast('다른 인물로 분류했습니다. 이 조합은 다시 표시되지 않습니다.');
+    try{
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'dup_ignore', action: 'append', entry: { namesKey: key } })
+      });
+    }catch(err){
+      showToast('저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+    }
+    return;
+  }
+  const renameBtn = e.target.closest('button[data-action="att-dup-rename"]');
+  if(renameBtn){
+    openAttRenameModal(renameBtn.dataset.name);
+    return;
+  }
+  const toggleBtn = e.target.closest('button[data-action="att-dup-toggle-detail"]');
+  if(!toggleBtn) return;
+  const name = toggleBtn.dataset.name;
+  const detailEl = document.querySelector(`.att-dup-detail[data-name-detail="${CSS.escape(name)}"]`);
+  if(!detailEl) return;
+  const isHidden = detailEl.style.display === 'none';
+  if(isHidden){
+    const records = attRecords.filter(r => r.name === name).sort((a,b) => b.date.localeCompare(a.date));
+    detailEl.innerHTML = records.map(r => {
+      const parts = [];
+      if(r.checkIn) parts.push(`출근 ${r.checkIn}${r.checkInTime ? ' ' + r.checkInTime : ''}`);
+      if(r.checkOut) parts.push(`퇴근 ${r.checkOut}${r.checkOutTime ? ' ' + r.checkOutTime : ''}`);
+      if(r.leave) parts.push(`휴무${r.leaveTime ? ' ' + r.leaveTime : ''}`);
+      const messages = (r.rawText || '').split(' || ').filter(Boolean);
+      return `<div class="att-dup-detail-item">
+        <div class="att-dup-detail-top"><b>${escapeHtml(r.date)}</b> · ${escapeHtml(parts.join(' · ') || '기록 없음')}</div>
+        ${messages.map(m => `<div class="att-dup-detail-msg">${escapeHtml(m)}</div>`).join('')}
+      </div>`;
+    }).join('') || '<div class="sub">기록이 없습니다.</div>';
+    detailEl.style.display = '';
+    toggleBtn.textContent = '닫기';
+  }else{
+    detailEl.style.display = 'none';
+    toggleBtn.textContent = '보기';
+  }
+});
 
 document.getElementById('attDupListArea').addEventListener('click', async (e) => {
   const btn = e.target.closest('button[data-action="att-dup-merge"]');
@@ -3947,7 +4055,7 @@ document.getElementById('attDupListArea').addEventListener('click', async (e) =>
   await mergeEmployeeNames(targetName, sourceNames);
 });
 
-async function mergeEmployeeNames(targetName, sourceNames){
+async function mergeEmployeeNames(targetName, sourceNames, customMessage){
   showToast('합치는 중...');
 
   // 1) 로컬 attRecords에서 같은 날짜에 source/target이 같이 있으면 하나로 합침
@@ -3994,7 +4102,7 @@ async function mergeEmployeeNames(targetName, sourceNames){
 
   renderAttTable();
   renderAttReviewPanel();
-  showToast(`"${sourceNames.join(', ')}"을(를) "${targetName}"으로 합쳤습니다.`);
+  showToast(customMessage || `"${sourceNames.join(', ')}"을(를) "${targetName}"으로 합쳤습니다.`);
 
   // 3) 서버에도 반영 (전체 교체 방식 - 합치기는 자주 일어나는 작업이 아니므로 OK)
   try{
@@ -4012,6 +4120,34 @@ async function mergeEmployeeNames(targetName, sourceNames){
     showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
   }
 }
+
+/* ---- 이름 수정 (동명이인 구분 등) ---- */
+function openAttRenameModal(name){
+  document.getElementById('att-rename-old').value = name;
+  document.getElementById('attRenameOldLabel').textContent = name;
+  document.getElementById('att-rename-new').value = name;
+  document.getElementById('attRenameOverlay').classList.add('show');
+}
+document.getElementById('cancelAttRename').addEventListener('click', () => {
+  document.getElementById('attRenameOverlay').classList.remove('show');
+});
+document.getElementById('attRenameOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attRenameOverlay') document.getElementById('attRenameOverlay').classList.remove('show');
+});
+document.getElementById('confirmAttRename').addEventListener('click', async () => {
+  const oldName = document.getElementById('att-rename-old').value;
+  const newName = document.getElementById('att-rename-new').value.trim();
+  if(!newName){
+    showToast('새 이름을 입력해주세요.');
+    return;
+  }
+  if(newName === oldName){
+    document.getElementById('attRenameOverlay').classList.remove('show');
+    return;
+  }
+  document.getElementById('attRenameOverlay').classList.remove('show');
+  await mergeEmployeeNames(newName, [oldName], `"${oldName}"을(를) "${newName}"(으)로 이름을 변경했습니다.`);
+});
 
 document.getElementById('attReviewListArea').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action="att-review-from-panel"]');
