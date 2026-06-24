@@ -697,6 +697,7 @@
     padding: 6px 0;
   }
   .att-dup-candidate input[type=checkbox]{ width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .att-dup-candidate input[type=radio]{ width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; accent-color: var(--violet); }
   .att-dup-candidate .att-row-name{ flex-shrink: 0; }
   .att-dup-candidate .sub{ flex: 1; }
   .att-dup-candidate.is-primary .att-row-name{ color: var(--violet); }
@@ -3965,8 +3966,10 @@ function renderAttDupPanel(){
     const primary = group[0];
     const candidatesHtml = group.map((name, ni) => {
       const count = attRecords.filter(r => r.name === name).length;
-      return `<div class="att-dup-candidate ${ni === 0 ? 'is-primary' : ''}">
-        <input type="checkbox" class="att-dup-checkbox" data-group="${gi}" data-name="${escapeHtml(name)}" checked>
+      const isPrimary = ni === 0;
+      return `<div class="att-dup-candidate ${isPrimary ? 'is-primary' : ''}">
+        <input type="radio" name="att-dup-primary-${gi}" class="att-dup-primary-radio" data-group="${gi}" data-name="${escapeHtml(name)}" ${isPrimary ? 'checked' : ''}>
+        <input type="checkbox" class="att-dup-checkbox" data-group="${gi}" data-name="${escapeHtml(name)}" ${isPrimary ? 'checked disabled' : 'checked'}>
         <span class="att-row-name">${escapeHtml(name)}</span>
         <span class="sub">${count}건 기록</span>
         <button class="btn small" data-action="att-dup-toggle-detail" data-name="${escapeHtml(name)}">보기</button>
@@ -3975,7 +3978,7 @@ function renderAttDupPanel(){
       <div class="att-dup-detail" data-name-detail="${escapeHtml(name)}" style="display:none;"></div>`;
     }).join('');
     return `<div class="att-dup-group" data-group="${gi}" data-primary="${escapeHtml(primary)}" data-names="${escapeHtml(JSON.stringify(group))}">
-      <p class="att-dup-group-title">아래 이름들이 같은 사람일 수 있습니다. 합칠 이름만 체크하고, 대표 이름을 선택하세요.</p>
+      <p class="att-dup-group-title">왼쪽 ◉로 남길 대표 이름을 고르고, 합칠 항목은 체크된 채로 두세요 (체크 해제하면 합치지 않고 그대로 둡니다).</p>
       ${candidatesHtml}
       <div class="att-dup-actions">
         <button class="btn small" data-action="att-dup-not-same" data-group="${gi}">다른 인물로 분류</button>
@@ -3984,6 +3987,25 @@ function renderAttDupPanel(){
     </div>`;
   }).join('');
 }
+
+document.getElementById('attDupListArea').addEventListener('change', (e) => {
+  if(!e.target.classList.contains('att-dup-primary-radio')) return;
+  const gi = e.target.dataset.group;
+  const newPrimaryName = e.target.dataset.name;
+  const groupEl = document.querySelector(`.att-dup-group[data-group="${gi}"]`);
+  groupEl.querySelectorAll('.att-dup-candidate').forEach(row => {
+    const radio = row.querySelector('.att-dup-primary-radio');
+    const checkbox = row.querySelector('.att-dup-checkbox');
+    const isNowPrimary = radio.dataset.name === newPrimaryName;
+    row.classList.toggle('is-primary', isNowPrimary);
+    if(isNowPrimary){
+      checkbox.checked = true;
+      checkbox.disabled = true;
+    }else{
+      checkbox.disabled = false;
+    }
+  });
+});
 
 document.getElementById('attDupListArea').addEventListener('click', async (e) => {
   const notSameBtn = e.target.closest('button[data-action="att-dup-not-same"]');
@@ -4042,15 +4064,15 @@ document.getElementById('attDupListArea').addEventListener('click', async (e) =>
   if(!btn) return;
   const gi = btn.dataset.group;
   const groupEl = document.querySelector(`.att-dup-group[data-group="${gi}"]`);
+  const radio = groupEl.querySelector('.att-dup-primary-radio:checked');
+  const targetName = radio ? radio.dataset.name : groupEl.dataset.primary;
   const checked = Array.from(groupEl.querySelectorAll('.att-dup-checkbox:checked')).map(c => c.dataset.name);
-  if(checked.length < 2){
-    showToast('합칠 이름을 2개 이상 선택해주세요.');
+  const sourceNames = checked.filter(n => n !== targetName);
+
+  if(sourceNames.length === 0){
+    showToast('합칠 다른 이름을 1개 이상 체크해주세요.');
     return;
   }
-  // 대표 이름: 그룹의 첫 번째(가장 짧은) 이름이 선택되어 있으면 그걸 사용, 아니면 선택된 것 중 가장 짧은 것
-  const primary = groupEl.dataset.primary;
-  const targetName = checked.includes(primary) ? primary : [...checked].sort((a,b) => a.length - b.length)[0];
-  const sourceNames = checked.filter(n => n !== targetName);
 
   await mergeEmployeeNames(targetName, sourceNames);
 });
