@@ -1732,7 +1732,7 @@
     <input type="hidden" id="personnel-profile-name">
     <div class="field" style="margin-bottom:12px;">
       <label for="personnel-profile-birth">생년월일</label>
-      <input type="date" id="personnel-profile-birth">
+      <input type="text" id="personnel-profile-birth" placeholder="예: 1990-01-15" maxlength="20">
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="personnel-profile-phone">번호</label>
@@ -3659,7 +3659,7 @@ function renderPersonnelList(){
       ? `<span class="att-zone-badge" style="background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35);">${escapeHtml(emp.team)}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">팀미배정</span>`;
     return `<div class="att-emp-row">
-      <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; font:inherit; cursor:pointer; text-decoration:underline; text-decoration-style:dotted;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+      <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-decoration:underline; text-decoration-style:dotted;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
       ${zoneBadgeHtml}
       ${teamBadgeHtml}
       <span class="sub">${count}건 기록</span>
