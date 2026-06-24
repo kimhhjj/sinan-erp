@@ -1683,6 +1683,12 @@
       <label for="att-edit-name">이름</label>
       <input type="text" id="att-edit-name" maxlength="60">
     </div>
+    <div class="field" style="margin-bottom:12px;" id="att-edit-alias-field">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="att-edit-save-alias" style="width:16px; height:16px;">
+        <span>이 닉네임은 앞으로 항상 이 이름으로 자동 변환 (영구 매핑)</span>
+      </label>
+    </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="att-edit-zone">구역</label>
       <select id="att-edit-zone">
@@ -3337,6 +3343,7 @@ let attCurrentDate = todayDateOnly(); // 'YYYY-MM-DD'
 let attRecords = []; // 전체 attendance 기록 (모든 날짜)
 let attEmployees = []; // [{name, firstSeenDate, active}]
 let attDupIgnoreList = []; // ['name1|name2', ...] - "다른 인물로 분류"한 이름 조합의 key 목록
+let attAliasMap = {}; // { '닉네임': '실명', ... } - 카톡 닉네임을 실명으로 영구 치환
 let attCalYear = new Date().getFullYear();
 let attCalMonth = new Date().getMonth();
 let attCalSelectCallback = null;
@@ -3351,18 +3358,24 @@ function initAttendanceViewIfNeeded(){
 
 async function loadAttendanceData(){
   try{
-    const [attRes, empRes, dupRes] = await Promise.all([
+    const [attRes, empRes, dupRes, aliasRes] = await Promise.all([
       fetch(SHEET_API_URL + '?type=attendance').then(r => r.json()),
       fetch(SHEET_API_URL + '?type=employees').then(r => r.json()),
-      fetch(SHEET_API_URL + '?type=dup_ignore').then(r => r.json())
+      fetch(SHEET_API_URL + '?type=dup_ignore').then(r => r.json()),
+      fetch(SHEET_API_URL + '?type=alias_map').then(r => r.json())
     ]);
     attRecords = (attRes.ok && attRes.attendance) ? attRes.attendance : [];
     attEmployees = (empRes.ok && empRes.employees) ? empRes.employees : [];
     attDupIgnoreList = (dupRes.ok && dupRes.dup_ignore) ? dupRes.dup_ignore.map(d => d.namesKey) : [];
+    attAliasMap = {};
+    if(aliasRes.ok && aliasRes.alias_map){
+      aliasRes.alias_map.forEach(a => { attAliasMap[a.alias] = a.realName; });
+    }
   }catch(e){
     attRecords = [];
     attEmployees = [];
     attDupIgnoreList = [];
+    attAliasMap = {};
   }
   renderAttDateDisplay();
   renderAttTable();
@@ -3659,17 +3672,20 @@ function parseKakaoAttendance(text){
       rosterEntries.forEach(entry => {
         if(entry.tag === '퇴사') return; // 퇴사자는 제외
         const type = (entry.tag === '휴무') ? 'leave' : 'checkIn';
+        // 영구 매핑(alias_map)에 등록된 이름이면 실명으로 치환하고, 검토 필요 없이 바로 확정
+        const mapped = attAliasMap[entry.name];
+        const finalName = mapped || entry.name;
         // 태그가 명확하면(없음/관리/휴무/연장/주간/야간 중 하나) 확정 처리.
-        // 그 외 애매한 경우만 검토 필요로 표시.
+        // 그 외 애매한 경우만 검토 필요로 표시. 매핑된 이름은 항상 확정 처리.
         const knownTags = ['', '관리', '휴무', '연장', '주간', '야간'];
         const isClearTag = knownTags.includes(entry.tag);
         results.push({
           date: msg.date,
-          name: entry.name,
+          name: finalName,
           type: type,
           time: msg.time,
           rawText: `[단체명단:${msg.sender}] ${entry.name}${entry.tag ? '-' + entry.tag : ''}`,
-          needsReview: !isClearTag
+          needsReview: mapped ? false : !isClearTag
         });
       });
       return; // 단체 명단으로 처리했으면 아래의 개인 보고 로직은 건너뜀
@@ -3684,17 +3700,21 @@ function parseKakaoAttendance(text){
     else if(hasCheckIn) type = 'checkIn';
     if(!type) return;
 
+    // 영구 매핑(alias_map)에 등록된 닉네임이면 실명으로 치환하고, 검토 필요 없이 바로 확정
+    const mappedSender = attAliasMap[msg.sender];
+    const finalSenderName = mappedSender || msg.sender;
+
     const isAmbiguous = ATT_AMBIGUOUS_KEYWORDS.some(k => body.includes(k));
     const isCleanName = /^[가-힣]{2,4}$/.test(msg.sender);
     const oddCheckInSpelling = ATT_CHECKIN_KEYWORDS.slice(1).some(k => body.includes(k));
 
     results.push({
       date: msg.date,
-      name: msg.sender,
+      name: finalSenderName,
       type: type,
       time: msg.time,
       rawText: body,
-      needsReview: isAmbiguous || oddCheckInSpelling || !isCleanName
+      needsReview: mappedSender ? false : (isAmbiguous || oddCheckInSpelling || !isCleanName)
     });
   });
 
@@ -4142,9 +4162,15 @@ document.getElementById('attTableArea').addEventListener('click', (e) => {
 /* ---- 출퇴근 기록 수정 (이름/구역/출근/퇴근/휴무/비고 한번에) ---- */
 function openAttEditRow(name){
   let rec = attRecords.find(r => r.date === attCurrentDate && r.name === name);
+  // 오늘 이 사람의 기록이 없으면("???" 상태), 다른 날짜의 같은 사람 기록에서 구역(zone)을 추정
+  let fallbackZone = attCurrentZone !== 'all' ? attCurrentZone : 'A5';
+  if(!rec){
+    const otherRec = attRecords.find(r => r.name === name);
+    if(otherRec) fallbackZone = getRecordZone(otherRec);
+  }
   document.getElementById('att-edit-old-name').value = name;
   document.getElementById('att-edit-name').value = name;
-  document.getElementById('att-edit-zone').value = rec ? getRecordZone(rec) : (attCurrentZone !== 'all' ? attCurrentZone : 'A5');
+  document.getElementById('att-edit-zone').value = rec ? getRecordZone(rec) : fallbackZone;
   document.getElementById('att-edit-checkin').value = rec && rec.checkIn ? '출근완료' : '';
   document.getElementById('att-edit-checkin-time').value = rec ? (rec.checkInTime || '') : '';
   document.getElementById('att-edit-checkout').value = rec && rec.checkOut ? '퇴근완료' : '';
@@ -4152,6 +4178,7 @@ function openAttEditRow(name){
   document.getElementById('att-edit-leave').value = rec && rec.leave ? '휴무' : '';
   document.getElementById('att-edit-leave-time').value = rec ? (rec.leaveTime || '') : '';
   document.getElementById('att-edit-note').value = rec ? (rec.reviewDecision === 'manual_note' ? (rec.manualNote || '') : '') : '';
+  document.getElementById('att-edit-save-alias').checked = false;
   document.getElementById('attEditRowOverlay').classList.add('show');
 }
 document.getElementById('cancelAttEditRow').addEventListener('click', () => {
@@ -4175,6 +4202,7 @@ document.getElementById('confirmAttEditRow').addEventListener('click', async () 
   const leave = document.getElementById('att-edit-leave').value;
   const leaveTime = document.getElementById('att-edit-leave-time').value.trim();
   const note = document.getElementById('att-edit-note').value.trim();
+  const saveAlias = document.getElementById('att-edit-save-alias').checked;
 
   document.getElementById('attEditRowOverlay').classList.remove('show');
 
@@ -4212,7 +4240,7 @@ document.getElementById('confirmAttEditRow').addEventListener('click', async () 
 
   renderAttTable();
   renderAttReviewPanel();
-  showToast('수정되었습니다.');
+  showToast(saveAlias ? `수정되었습니다. "${oldName}"은 앞으로 항상 "${newName}"으로 자동 변환됩니다.` : '수정되었습니다.');
 
   try{
     await fetch(SHEET_API_URL, {
@@ -4225,6 +4253,14 @@ document.getElementById('confirmAttEditRow').addEventListener('click', async () 
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: attEmployees })
     });
+    if(saveAlias && newName !== oldName){
+      attAliasMap[oldName] = newName;
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'alias_map', action: 'append', entry: { alias: oldName, realName: newName } })
+      });
+    }
   }catch(e){
     showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
   }
