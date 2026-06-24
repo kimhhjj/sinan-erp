@@ -678,6 +678,33 @@
     font-size: 13px;
   }
   .att-review-item:last-child{ margin-bottom: 0; }
+  .att-dup-group{
+    padding: 12px 14px;
+    background: var(--shadow-tint-blue);
+    border-radius: var(--radius-btn);
+    margin-bottom: 10px;
+  }
+  .att-dup-group:last-child{ margin-bottom: 0; }
+  .att-dup-group-title{
+    font-size: 12px;
+    color: var(--smoke);
+    margin-bottom: 8px;
+  }
+  .att-dup-candidate{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .att-dup-candidate input[type=checkbox]{ width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .att-dup-candidate .att-row-name{ flex-shrink: 0; }
+  .att-dup-candidate .sub{ flex: 1; }
+  .att-dup-candidate.is-primary .att-row-name{ color: var(--violet); }
+  .att-dup-actions{
+    display:flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
   .att-history-item{
     padding: 10px 4px;
     border-bottom: 1px solid var(--ash);
@@ -1140,6 +1167,11 @@
         <div class="panel" id="attReviewPanel" style="display:none; margin-bottom:20px;">
           <p class="block-title">검토 필요 모아보기 (<span id="attReviewCount">0</span>건)</p>
           <div id="attReviewListArea"></div>
+        </div>
+
+        <div class="panel" id="attDupPanel" style="display:none; margin-bottom:20px;">
+          <p class="block-title">중복 의심 인물 (<span id="attDupCount">0</span>건)</p>
+          <div id="attDupListArea"></div>
         </div>
 
         <div class="panel">
@@ -3841,7 +3873,146 @@ function renderAttReviewPanel(){
     </div>
   `;
   }).join('');
+  renderAttDupPanel();
 }
+
+/* ---- 중복 의심 인물 그룹화 및 합치기 ---- */
+function findDuplicateGroups(){
+  const names = attEmployees.filter(e => e.active !== 'false').map(e => e.name);
+  const used = new Set();
+  const groups = [];
+  names.forEach(name => {
+    if(used.has(name)) return;
+    const group = names.filter(other => {
+      if(other === name) return false;
+      if(used.has(other)) return false;
+      return other.includes(name) || name.includes(other);
+    });
+    if(group.length > 0){
+      const fullGroup = [name, ...group];
+      fullGroup.forEach(n => used.add(n));
+      // 가장 짧은(순수 이름에 가까운) 것을 대표 이름으로 추천
+      fullGroup.sort((a, b) => a.length - b.length);
+      groups.push(fullGroup);
+    }
+  });
+  return groups;
+}
+
+function renderAttDupPanel(){
+  const groups = findDuplicateGroups();
+  const panel = document.getElementById('attDupPanel');
+  document.getElementById('attDupCount').textContent = groups.length;
+  if(groups.length === 0){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  const area = document.getElementById('attDupListArea');
+  area.innerHTML = groups.map((group, gi) => {
+    const primary = group[0];
+    const candidatesHtml = group.map((name, ni) => {
+      const count = attRecords.filter(r => r.name === name).length;
+      return `<div class="att-dup-candidate ${ni === 0 ? 'is-primary' : ''}">
+        <input type="checkbox" class="att-dup-checkbox" data-group="${gi}" data-name="${escapeHtml(name)}" checked>
+        <span class="att-row-name">${escapeHtml(name)}</span>
+        <span class="sub">${count}건 기록</span>
+      </div>`;
+    }).join('');
+    return `<div class="att-dup-group" data-group="${gi}" data-primary="${escapeHtml(primary)}">
+      <p class="att-dup-group-title">아래 이름들이 같은 사람일 수 있습니다. 합칠 이름만 체크하고, 대표 이름을 선택하세요.</p>
+      ${candidatesHtml}
+      <div class="att-dup-actions">
+        <button class="btn small primary" data-action="att-dup-merge" data-group="${gi}">선택한 항목 합치기</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('attDupListArea').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-action="att-dup-merge"]');
+  if(!btn) return;
+  const gi = btn.dataset.group;
+  const groupEl = document.querySelector(`.att-dup-group[data-group="${gi}"]`);
+  const checked = Array.from(groupEl.querySelectorAll('.att-dup-checkbox:checked')).map(c => c.dataset.name);
+  if(checked.length < 2){
+    showToast('합칠 이름을 2개 이상 선택해주세요.');
+    return;
+  }
+  // 대표 이름: 그룹의 첫 번째(가장 짧은) 이름이 선택되어 있으면 그걸 사용, 아니면 선택된 것 중 가장 짧은 것
+  const primary = groupEl.dataset.primary;
+  const targetName = checked.includes(primary) ? primary : [...checked].sort((a,b) => a.length - b.length)[0];
+  const sourceNames = checked.filter(n => n !== targetName);
+
+  await mergeEmployeeNames(targetName, sourceNames);
+});
+
+async function mergeEmployeeNames(targetName, sourceNames){
+  showToast('합치는 중...');
+
+  // 1) 로컬 attRecords에서 같은 날짜에 source/target이 같이 있으면 하나로 합침
+  const byDate = {};
+  attRecords.forEach(r => {
+    if(!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  });
+
+  const newRecords = [];
+  Object.keys(byDate).forEach(date => {
+    const dayRecords = byDate[date];
+    const targetRec = dayRecords.find(r => r.name === targetName);
+    const sourceRecs = dayRecords.filter(r => sourceNames.includes(r.name));
+    const others = dayRecords.filter(r => r.name !== targetName && !sourceNames.includes(r.name));
+
+    if(!targetRec && sourceRecs.length === 0){
+      // 이 날짜엔 해당 없음
+    }else{
+      const merged = targetRec ? Object.assign({}, targetRec) : {
+        date, name: targetName, checkIn:'', checkInTime:'', checkOut:'', checkOutTime:'', leave:'', leaveTime:'', status:'confirmed', rawText:'', reviewDecision:''
+      };
+      sourceRecs.forEach(r => {
+        merged.checkIn = merged.checkIn || r.checkIn;
+        merged.checkInTime = merged.checkInTime || r.checkInTime;
+        merged.checkOut = merged.checkOut || r.checkOut;
+        merged.checkOutTime = merged.checkOutTime || r.checkOutTime;
+        merged.leave = merged.leave || r.leave;
+        merged.leaveTime = merged.leaveTime || r.leaveTime;
+        merged.rawText = merged.rawText ? (merged.rawText + ' || ' + r.rawText) : r.rawText;
+      });
+      if(merged.checkIn && merged.leave) merged.status = 'needs_review';
+      newRecords.push(merged);
+    }
+    newRecords.push(...others);
+  });
+  attRecords = newRecords;
+
+  // 2) 직원 명단에서 source 이름들 제거
+  attEmployees = attEmployees.filter(e => !sourceNames.includes(e.name));
+  if(!attEmployees.find(e => e.name === targetName)){
+    attEmployees.push({ name: targetName, firstSeenDate: todayDateOnly(), active: 'true' });
+  }
+
+  renderAttTable();
+  renderAttReviewPanel();
+  showToast(`"${sourceNames.join(', ')}"을(를) "${targetName}"으로 합쳤습니다.`);
+
+  // 3) 서버에도 반영 (전체 교체 방식 - 합치기는 자주 일어나는 작업이 아니므로 OK)
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'replaceAllRecords', records: attRecords })
+    });
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: attEmployees })
+    });
+  }catch(e){
+    showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+  }
+}
+
 document.getElementById('attReviewListArea').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action="att-review-from-panel"]');
   if(!btn) return;
