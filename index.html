@@ -610,6 +610,48 @@
   }
   .att-date-display:hover{ box-shadow: var(--shadow-hover); }
   #attNameSearch{ width: 220px; }
+  .att-zone-tabs{
+    display:flex;
+    gap: 6px;
+    margin-top: 14px;
+    border-top: 1px solid var(--ash);
+    padding-top: 14px;
+  }
+  .att-zone-tab{
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--ash);
+    background: var(--canvas);
+    color: var(--smoke);
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-display);
+  }
+  .att-zone-tab.active{ background: var(--onyx); color: #fff; border-color: var(--onyx); }
+  .att-zone-tab:not(.active):hover{ background: var(--sky); }
+  .att-zone-choice:hover{ box-shadow: var(--shadow-hover); border-color: var(--violet); }
+  .att-zone-badge{
+    display:inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--shadow-tint-blue);
+    color: var(--blue);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .att-emp-row{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--ash);
+  }
+  .att-emp-row:last-child{ border-bottom: none; }
+  .att-emp-row input[type=checkbox]{ width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .att-emp-row .att-row-name{ flex: 1; }
   table.att-table{ width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
   table.att-table th, table.att-table td{
     padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--ash); vertical-align: middle;
@@ -1163,6 +1205,7 @@
           <h1>출퇴근관리</h1>
           <div style="display:flex; gap:8px;">
             <button class="btn danger" id="attClearAllBtn">전체 삭제</button>
+            <button class="btn" id="attManageEmployeesBtn">직원 명단 관리</button>
             <input type="file" id="attFileInput" accept=".txt" style="display:none;">
             <button class="btn primary" id="attUploadBtn">+ 대화내용(txt) 업로드</button>
           </div>
@@ -1177,6 +1220,11 @@
               <button class="btn small" id="attTodayBtn">오늘</button>
             </div>
             <input type="text" id="attNameSearch" placeholder="이름으로 검색 (전체 이력)">
+          </div>
+          <div class="att-zone-tabs" id="attZoneTabs">
+            <button class="att-zone-tab active" data-zone="all">전체(A4+A5)</button>
+            <button class="att-zone-tab" data-zone="A4">A4</button>
+            <button class="att-zone-tab" data-zone="A5">A5</button>
           </div>
         </div>
 
@@ -1596,6 +1644,32 @@
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelAttRename">취소</button>
       <button type="button" class="btn primary" id="confirmAttRename">변경</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attZoneSelectOverlay">
+  <div class="modal" style="max-width:380px;">
+    <h3>어느 구역의 대화내용인가요?</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 18px;">업로드할 txt 파일이 A4 출역방인지 A5 출역방인지 선택해주세요.</p>
+    <div style="display:flex; gap:10px; margin-bottom:18px;">
+      <button type="button" class="btn att-zone-choice" data-zone="A4" style="flex:1; justify-content:center; padding:16px;">A4</button>
+      <button type="button" class="btn att-zone-choice" data-zone="A5" style="flex:1; justify-content:center; padding:16px;">A5</button>
+    </div>
+    <div style="display:flex; justify-content:flex-end;">
+      <button type="button" class="btn" id="cancelAttZoneSelect">취소</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attEmployeeManageOverlay">
+  <div class="modal" style="max-width:480px;">
+    <h3>직원 명단 관리</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">삭제할 인원을 체크하고 삭제하세요. 그 사람의 모든 날짜 기록도 함께 삭제됩니다.</p>
+    <div id="attEmployeeManageList" style="max-height:380px; overflow-y:auto; margin-bottom:16px;"></div>
+    <div style="display:flex; justify-content:space-between; gap:8px;">
+      <button type="button" class="btn" id="closeAttEmployeeManage">닫기</button>
+      <button type="button" class="btn danger" id="confirmAttEmployeeDelete">선택 인원 삭제</button>
     </div>
   </div>
 </div>
@@ -3360,6 +3434,68 @@ function ensureEmployeeExists(name, dateStr){
   return false;
 }
 
+/* ---- 직원 명단 관리 (개별 삭제) ---- */
+document.getElementById('attManageEmployeesBtn').addEventListener('click', () => {
+  renderAttEmployeeManageList();
+  document.getElementById('attEmployeeManageOverlay').classList.add('show');
+});
+document.getElementById('closeAttEmployeeManage').addEventListener('click', () => {
+  document.getElementById('attEmployeeManageOverlay').classList.remove('show');
+});
+document.getElementById('attEmployeeManageOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attEmployeeManageOverlay') document.getElementById('attEmployeeManageOverlay').classList.remove('show');
+});
+
+function renderAttEmployeeManageList(){
+  const area = document.getElementById('attEmployeeManageList');
+  const activeEmployees = attEmployees.filter(e => e.active !== 'false').sort((a,b) => a.name.localeCompare(b.name));
+  if(activeEmployees.length === 0){
+    area.innerHTML = '<div class="empty">등록된 직원이 없습니다.</div>';
+    return;
+  }
+  area.innerHTML = activeEmployees.map(emp => {
+    const count = attRecords.filter(r => r.name === emp.name).length;
+    return `<div class="att-emp-row">
+      <input type="checkbox" class="att-emp-del-checkbox" data-name="${escapeHtml(emp.name)}">
+      <span class="att-row-name">${escapeHtml(emp.name)}</span>
+      <span class="sub">${count}건 기록</span>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('confirmAttEmployeeDelete').addEventListener('click', async () => {
+  const checked = Array.from(document.querySelectorAll('.att-emp-del-checkbox:checked')).map(c => c.dataset.name);
+  if(checked.length === 0){
+    showToast('삭제할 인원을 선택해주세요.');
+    return;
+  }
+  if(!confirm(`선택한 ${checked.length}명을 삭제할까요? 그 사람들의 모든 날짜 기록도 함께 삭제되며, 되돌릴 수 없습니다.`)) return;
+
+  const nameSet = new Set(checked);
+  attRecords = attRecords.filter(r => !nameSet.has(r.name));
+  attEmployees = attEmployees.filter(e => !nameSet.has(e.name));
+
+  renderAttTable();
+  renderAttReviewPanel();
+  document.getElementById('attEmployeeManageOverlay').classList.remove('show');
+  showToast(`${checked.length}명을 삭제했습니다.`);
+
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'replaceAllRecords', records: attRecords })
+    });
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'employees', action: 'replaceAll', employees: attEmployees })
+    });
+  }catch(e){
+    showToast('서버 저장에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+  }
+});
+
 /* ---- 카톡 txt 파싱 ---- */
 const ATT_DATE_LINE_RE = /^-+\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 const ATT_MSG_START_RE = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*([\d:]+)\]\s*(.*)$/;
@@ -3508,11 +3644,11 @@ function parseKakaoAttendance(text){
   return results;
 }
 
-function buildAttendanceRecordsForDate(dateStr, parsedForDate){
+function buildAttendanceRecordsForDate(dateStr, parsedForDate, zone){
   // parsedForDate: 그 날짜에 해당하는 파싱 결과 배열
   const byName = {};
   parsedForDate.forEach(p => {
-    if(!byName[p.name]) byName[p.name] = { date: dateStr, name: p.name, checkIn: '', checkInTime: '', checkOut: '', checkOutTime: '', leave: '', leaveTime: '', status: 'confirmed', rawText: '', reviewDecision: '' };
+    if(!byName[p.name]) byName[p.name] = { date: dateStr, name: p.name, zone: zone || '', checkIn: '', checkInTime: '', checkOut: '', checkOutTime: '', leave: '', leaveTime: '', status: 'confirmed', rawText: '', reviewDecision: '' };
     const rec = byName[p.name];
     // 출근/퇴근/휴무는 항상 확정 처리. 특이사항(미태깅, 오류 등)이 있으면 "검토 필요"도 같이 표시.
     if(p.type === 'checkIn'){ rec.checkIn = '출근완료'; rec.checkInTime = p.time || ''; }
@@ -3533,14 +3669,30 @@ function buildAttendanceRecordsForDate(dateStr, parsedForDate){
   return Object.values(byName);
 }
 
+let pendingUploadZone = null; // 'A4' | 'A5'
+
 document.getElementById('attUploadBtn').addEventListener('click', () => {
-  document.getElementById('attFileInput').click();
+  document.getElementById('attZoneSelectOverlay').classList.add('show');
+});
+document.getElementById('cancelAttZoneSelect').addEventListener('click', () => {
+  document.getElementById('attZoneSelectOverlay').classList.remove('show');
+});
+document.getElementById('attZoneSelectOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attZoneSelectOverlay') document.getElementById('attZoneSelectOverlay').classList.remove('show');
+});
+document.querySelectorAll('.att-zone-choice').forEach(btn => {
+  btn.addEventListener('click', () => {
+    pendingUploadZone = btn.dataset.zone;
+    document.getElementById('attZoneSelectOverlay').classList.remove('show');
+    document.getElementById('attFileInput').click();
+  });
 });
 let pendingUploadData = null; // 신규 인원 확인 대기 중인 업로드 데이터
 
 document.getElementById('attFileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if(!file) return;
+  const zone = pendingUploadZone || 'A5';
   const text = await file.text();
   const parsed = parseKakaoAttendance(text);
   if(parsed.length === 0){
@@ -3561,7 +3713,7 @@ document.getElementById('attFileInput').addEventListener('change', async (e) => 
   const newNameCandidates = new Map(); // name -> {firstSeenDate, count}
 
   Object.keys(dateGroups).forEach(dateStr => {
-    const recordsForDate = buildAttendanceRecordsForDate(dateStr, dateGroups[dateStr]);
+    const recordsForDate = buildAttendanceRecordsForDate(dateStr, dateGroups[dateStr], zone);
     recordsByDate[dateStr] = recordsForDate;
     recordsForDate.forEach(r => {
       if(!existingNames.has(r.name)){
@@ -3572,7 +3724,7 @@ document.getElementById('attFileInput').addEventListener('change', async (e) => 
   });
 
   e.target.value = '';
-  pendingUploadData = { recordsByDate };
+  pendingUploadData = { recordsByDate, zone };
 
   if(newNameCandidates.size > 0){
     openNewNameConfirmModal(newNameCandidates);
@@ -3828,15 +3980,26 @@ function renderAttSummaryStats(allNames, byName){
   `;
 }
 
+let attCurrentZone = 'all'; // 'all' | 'A4' | 'A5'
+
+function getRecordZone(r){
+  return r.zone || 'A5'; // 기존(구역 정보 없는) 데이터는 모두 A5로 간주
+}
+
 function renderAttTable(){
   const area = document.getElementById('attTableArea');
-  const todays = attRecords.filter(r => r.date === attCurrentDate);
+  let todays = attRecords.filter(r => r.date === attCurrentDate);
+  if(attCurrentZone !== 'all'){
+    todays = todays.filter(r => getRecordZone(r) === attCurrentZone);
+  }
   const byName = {};
   todays.forEach(r => { byName[r.name] = r; });
 
-  // 직원 명단 전체를 기준으로, 그날 기록이 없으면 '???'
+  // 직원 명단 전체를 기준으로, 그날 기록이 없으면 '???' (구역 필터가 'all'이 아니면 그 구역에 기록이 있던 사람만 대상으로 함)
   const activeEmployees = attEmployees.filter(e => e.active !== 'false');
-  const allNames = [...new Set([...activeEmployees.map(e => e.name), ...todays.map(t => t.name)])];
+  const allNames = attCurrentZone === 'all'
+    ? [...new Set([...activeEmployees.map(e => e.name), ...todays.map(t => t.name)])]
+    : [...new Set(todays.map(t => t.name))];
 
   renderAttSummaryStats(allNames, byName);
 
@@ -3857,6 +4020,7 @@ function renderAttTable(){
   let html = '<table class="att-table"><thead><tr><th>이름</th><th>출근</th><th>시간</th><th>퇴근</th><th>시간</th><th>휴무</th><th>비고</th></tr></thead><tbody>';
   sortedNames.forEach(name => {
     const r = byName[name];
+    const zoneBadge = attCurrentZone === 'all' && r ? `<span class="att-zone-badge">${escapeHtml(getRecordZone(r))}</span>` : '';
     if(!r){
       html += `<tr>
         <td class="att-row-name">${escapeHtml(name)}</td>
@@ -3873,14 +4037,14 @@ function renderAttTable(){
     if(hasConflict){
       // 출근/휴무가 충돌하는 상태에서는 둘 다 보여주지 않고, 확정 전임을 명확히 표시
       html += `<tr>
-        <td class="att-row-name">${escapeHtml(name)}</td>
+        <td class="att-row-name">${escapeHtml(name)}${zoneBadge}</td>
         <td colspan="5">${statusPillHtml('확정 대기 (출근·휴무 정보 충돌)', 'unknown')}</td>
         <td>${noteCell}</td>
       </tr>`;
       return;
     }
     html += `<tr>
-      <td class="att-row-name">${escapeHtml(name)}</td>
+      <td class="att-row-name">${escapeHtml(name)}${zoneBadge}</td>
       <td>${statusPillHtml(r.checkIn ? '출근' : '', 'in')}</td>
       <td>${r.checkInTime || ''}</td>
       <td>${statusPillHtml(r.checkOut ? '퇴근' : '', 'out')}</td>
@@ -3892,6 +4056,14 @@ function renderAttTable(){
   html += '</tbody></table>';
   area.innerHTML = html;
 }
+
+document.getElementById('attZoneTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.att-zone-tab');
+  if(!btn) return;
+  document.querySelectorAll('.att-zone-tab').forEach(t => t.classList.toggle('active', t === btn));
+  attCurrentZone = btn.dataset.zone;
+  renderAttTable();
+});
 
 document.getElementById('attTableArea').addEventListener('click', (e) => {
   const el = e.target.closest('[data-action="att-review-cell"]');
