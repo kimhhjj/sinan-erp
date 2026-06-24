@@ -705,6 +705,12 @@
     margin-bottom: 14px;
   }
   .att-summary-row .block-title{ margin: 0; }
+  .att-summary-right{
+    display:flex;
+    align-items:center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
   .att-summary-stats{
     display:flex;
     gap: 16px;
@@ -1139,7 +1145,10 @@
         <div class="panel">
           <div class="att-summary-row">
             <p class="block-title">이 날짜 출퇴근 현황</p>
-            <div class="att-summary-stats" id="attSummaryStats"></div>
+            <div class="att-summary-right">
+              <div class="att-summary-stats" id="attSummaryStats"></div>
+              <button class="btn small danger" id="attClearDateBtn">이 날짜만 삭제</button>
+            </div>
           </div>
           <div id="attTableArea"><div class="loading">불러오는 중...</div></div>
         </div>
@@ -1499,6 +1508,19 @@
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelAttClearAll">취소</button>
       <button type="button" class="btn danger" id="confirmAttClearAll" disabled>완전히 삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attClearDateOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h3>이 날짜 출퇴근 기록 삭제</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 18px;">
+      <b id="attClearDateLabel" style="color:var(--charcoal);"></b>의 출퇴근 기록만 <b style="color:var(--no);">삭제</b>됩니다. 다른 날짜는 영향받지 않습니다. 이 작업은 되돌릴 수 없습니다.
+    </p>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelAttClearDate">취소</button>
+      <button type="button" class="btn danger" id="confirmAttClearDate">이 날짜 삭제</button>
     </div>
   </div>
 </div>
@@ -3218,6 +3240,39 @@ document.getElementById('confirmAttClearAll').addEventListener('click', async ()
   }
 });
 
+/* ---- 이 날짜만 삭제 ---- */
+document.getElementById('attClearDateBtn').addEventListener('click', () => {
+  document.getElementById('attClearDateLabel').textContent = attCurrentDate;
+  document.getElementById('attClearDateOverlay').classList.add('show');
+});
+document.getElementById('cancelAttClearDate').addEventListener('click', () => {
+  document.getElementById('attClearDateOverlay').classList.remove('show');
+});
+document.getElementById('attClearDateOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attClearDateOverlay') document.getElementById('attClearDateOverlay').classList.remove('show');
+});
+document.getElementById('confirmAttClearDate').addEventListener('click', async () => {
+  const targetDate = attCurrentDate;
+
+  // 화면(로컬 캐시) 먼저 갱신
+  attRecords = attRecords.filter(r => r.date !== targetDate);
+  renderAttTable();
+  renderAttReviewPanel();
+  document.getElementById('attClearDateOverlay').classList.remove('show');
+  showToast(`${targetDate} 기록을 삭제하는 중...`);
+
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', action: 'clearDate', date: targetDate })
+    });
+    showToast(`${targetDate} 기록이 삭제되었습니다.`);
+  }catch(e){
+    showToast('삭제 요청이 실패했습니다. 새로고침 후 다시 시도해주세요.');
+  }
+});
+
 function ensureEmployeeExists(name, dateStr){
   if(!attEmployees.find(e => e.name === name)){
     attEmployees.push({ name: name, firstSeenDate: dateStr, active: 'true' });
@@ -3747,11 +3802,11 @@ function renderAttTable(){
     }
     html += `<tr>
       <td class="att-row-name">${escapeHtml(name)}</td>
-      <td>${statusPillHtml(r.checkIn, 'in')}</td>
+      <td>${statusPillHtml(r.checkIn ? '출근' : '', 'in')}</td>
       <td>${r.checkInTime || ''}</td>
-      <td>${statusPillHtml(r.checkOut, 'out')}</td>
+      <td>${statusPillHtml(r.checkOut ? '퇴근' : '', 'out')}</td>
       <td>${r.checkOutTime || ''}</td>
-      <td>${r.leave ? statusPillHtml(r.leave + (r.leaveTime ? ` (${r.leaveTime})` : ''), 'leave') : '<span class="sub">-</span>'}</td>
+      <td>${r.leave ? statusPillHtml('휴무' + (r.leaveTime ? ` ${r.leaveTime}` : ''), 'leave') : '<span class="sub">-</span>'}</td>
       <td>${noteCell}</td>
     </tr>`;
   });
