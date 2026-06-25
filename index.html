@@ -3929,9 +3929,6 @@ const ATT_LEAVE_KEYWORDS = ['휴무'];
 // 출근/퇴근/휴무는 확정하되, 이런 단어가 같이 있으면 "검토 필요"로 같이 표시(사람이 한번 더 확인하도록)
 const ATT_AMBIGUOUS_KEYWORDS = ['조퇴', '???', '검토', 'ino오류', '오류', '미태깅', '반차'];
 
-// 이 날짜부터의 기록만 반영 (그 이전 데이터는 무시)
-const ATT_CUTOFF_DATE = '2026-06-24';
-
 // 단체 명단 메시지의 한 줄: "1.이름" "1. 이름 관리" "1.이름-휴무" "1.이름(복층055)" "1.이름_휴무" 등
 const ATT_ROSTER_LINE_RE = /^(\d{1,3})[.\)]\s*([가-힣]{2,4})\s*[-_]?\s*(관리|휴무|퇴사|연장|주간|야간)?\s*(\([^)]*\))?\s*$/;
 
@@ -4007,8 +4004,9 @@ function parseKakaoAttendance(text){
   const messages = splitIntoMessages(text);
   const results = []; // { date, name, type: 'checkIn'|'checkOut'|'leave', time, rawText, needsReview }
 
+  const targetDate = todayDateOnly(); // 업로드 당일(오늘) 날짜의 메시지만 인식. 다른 날짜는 무시.
   messages.forEach(msg => {
-    if(!msg.date || msg.date < ATT_CUTOFF_DATE) return;
+    if(!msg.date || msg.date !== targetDate) return;
     const body = msg.body;
     if(!body) return;
     if(ATT_IGNORE_KEYWORDS.some(k => body.includes(k))) return;
@@ -4125,7 +4123,7 @@ document.getElementById('attFileInput').addEventListener('change', async (e) => 
   const text = await file.text();
   const parsed = parseKakaoAttendance(text);
   if(parsed.length === 0){
-    showToast('인식할 수 있는 출퇴근 기록을 찾지 못했습니다.');
+    showToast(`오늘(${todayDateOnly()}) 날짜의 출퇴근 기록을 찾지 못했습니다.`);
     e.target.value = '';
     return;
   }
