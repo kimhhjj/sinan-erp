@@ -4007,7 +4007,8 @@ function parseKakaoAttendance(text){
   const targetDate = todayDateOnly(); // 업로드 당일(오늘) 날짜의 메시지만 인식. 다른 날짜는 무시.
   messages.forEach(msg => {
     if(!msg.date || msg.date !== targetDate) return;
-    const body = msg.body;
+    // 카톡에서 메시지를 수정하면 본문 끝에 "(수정됨)"이 붙어서 내보내짐 - 이름/키워드 인식에 방해되므로 제거
+    const body = (msg.body || '').replace(/\s*\(수정됨\)\s*$/, '');
     if(!body) return;
     if(ATT_IGNORE_KEYWORDS.some(k => body.includes(k))) return;
 
@@ -4041,7 +4042,7 @@ function parseKakaoAttendance(text){
       return; // 단체 명단으로 처리했으면 아래의 개인 보고 로직은 건너뜀
     }
 
-    // ---- 2) 개인 보고 메시지 (기존 방식: 보낸사람 닉네임 = 그 사람 이름) ----
+    // ---- 2) 개인 보고 메시지 ----
     if(!hasCheckIn && !hasCheckOut && !hasLeave) return;
 
     let type = null;
@@ -4050,21 +4051,35 @@ function parseKakaoAttendance(text){
     else if(hasCheckIn) type = 'checkIn';
     if(!type) return;
 
-    // 영구 매핑(alias_map)에 등록된 닉네임이면 실명으로 치환하고, 검토 필요 없이 바로 확정
-    const mappedSender = attAliasMap[msg.sender];
-    const finalSenderName = mappedSender || msg.sender;
-
     const isAmbiguous = ATT_AMBIGUOUS_KEYWORDS.some(k => body.includes(k));
-    const isCleanName = /^[가-힣]{2,4}$/.test(msg.sender);
     const oddCheckInSpelling = ATT_CHECKIN_KEYWORDS.slice(1).some(k => body.includes(k));
 
-    results.push({
-      date: msg.date,
-      name: finalSenderName,
-      type: type,
-      time: msg.time,
-      rawText: body,
-      needsReview: mappedSender ? false : (isAmbiguous || oddCheckInSpelling || !isCleanName)
+    // 본문이 "이름1 이름2 ... 출근/퇴근/휴무"처럼 이름 나열 + 상태단어로만 끝나면
+    // 본인 외 다른 사람까지 같이 보고한 것(대리 보고)으로 보고 전원을 인식한다.
+    // 예: "한동희 한준희 출근" (한동희가 보냄) → 한동희, 한준희 둘 다 출근 처리.
+    const STATUS_EXACT_WORDS = [...ATT_CHECKIN_KEYWORDS, ...ATT_CHECKOUT_KEYWORDS, ...ATT_LEAVE_KEYWORDS];
+    const tokens = body.trim().split(/[\s,]+/).filter(Boolean).map(t => t.replace(/[!.?~…]+$/g, ''));
+    const lastToken = tokens[tokens.length - 1];
+    const isPureNameListMsg = tokens.length >= 2 &&
+      STATUS_EXACT_WORDS.includes(lastToken) &&
+      tokens.slice(0, -1).every(t => /^[가-힣]{2,4}$/.test(t));
+
+    // 이름 나열 형태가 아니면 기존 방식대로 보낸사람 닉네임을 그 사람 이름으로 사용
+    const names = isPureNameListMsg ? [...new Set(tokens.slice(0, -1))] : [msg.sender];
+
+    names.forEach(rawName => {
+      // 영구 매핑(alias_map)에 등록된 이름이면 실명으로 치환하고, 검토 필요 없이 바로 확정
+      const mapped = attAliasMap[rawName];
+      const finalName = mapped || rawName;
+      const isCleanName = /^[가-힣]{2,4}$/.test(rawName);
+      results.push({
+        date: msg.date,
+        name: finalName,
+        type: type,
+        time: msg.time,
+        rawText: body,
+        needsReview: mapped ? false : (isAmbiguous || oddCheckInSpelling || !isCleanName)
+      });
     });
   });
 
