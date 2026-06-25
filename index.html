@@ -1707,6 +1707,7 @@
     <div style="display:flex; gap:10px; margin-bottom:18px;">
       <button type="button" class="btn personnel-zone-choice" data-zone="A4" style="flex:1; justify-content:center; padding:16px;">A4</button>
       <button type="button" class="btn personnel-zone-choice" data-zone="A5" style="flex:1; justify-content:center; padding:16px;">A5</button>
+      <button type="button" class="btn personnel-zone-choice" data-zone="" style="flex:1; justify-content:center; padding:16px; color:var(--smoke);">미배정</button>
     </div>
     <div style="display:flex; justify-content:flex-end;">
       <button type="button" class="btn" id="cancelPersonnelZoneSelect">취소</button>
@@ -3775,7 +3776,7 @@ document.querySelectorAll('.personnel-zone-choice').forEach(btn => {
     if(emp){
       emp.zone = zone;
       renderPersonnelList();
-      showToast(`"${emp.name}"님 구역을 ${zone}로 지정했습니다.`);
+      showToast(zone ? `"${emp.name}"님 구역을 ${zone}로 지정했습니다.` : `"${emp.name}"님 구역을 미배정으로 변경했습니다.`);
       await saveEmployees();
     }
   });
@@ -4844,11 +4845,20 @@ async function mergeEmployeeNames(targetName, sourceNames, customMessage){
   });
   attRecords = newRecords;
 
-  // 2) 직원 명단에서 source 이름들 제거
+  // 2) 직원 명단에서 source 이름들 제거 (구역/팀/프로필 정보는 target으로 옮겨서 보존)
+  const PROFILE_FIELDS = ['zone', 'team', 'birthDate', 'phone', 'address', 'bloodType', 'trade', 'career', 'note'];
+  const sourceEmps = attEmployees.filter(e => sourceNames.includes(e.name));
   attEmployees = attEmployees.filter(e => !sourceNames.includes(e.name));
-  if(!attEmployees.find(e => e.name === targetName)){
-    attEmployees.push({ name: targetName, firstSeenDate: todayDateOnly(), active: 'true' });
+  let targetEmp = attEmployees.find(e => e.name === targetName);
+  if(!targetEmp){
+    const base = sourceEmps[0] || {};
+    targetEmp = Object.assign({}, base, { name: targetName, firstSeenDate: base.firstSeenDate || todayDateOnly(), active: 'true' });
+    attEmployees.push(targetEmp);
   }
+  // target에 비어있는 항목은 source 중 값이 있는 것으로 채움
+  sourceEmps.forEach(s => {
+    PROFILE_FIELDS.forEach(f => { if(!targetEmp[f] && s[f]) targetEmp[f] = s[f]; });
+  });
 
   renderAttTable();
   renderAttReviewPanel();
