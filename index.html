@@ -4139,15 +4139,17 @@ document.getElementById('attFileInput').addEventListener('change', async (e) => 
 
   const recordsByDate = {};
   const existingNames = new Set(attEmployees.map(e => e.name));
-  const newNameCandidates = new Map(); // name -> {firstSeenDate, count}
+  const newNameCandidates = new Map(); // name -> {firstSeenDate, count, samples:[{date, text}]}
 
   Object.keys(dateGroups).forEach(dateStr => {
     const recordsForDate = buildAttendanceRecordsForDate(dateStr, dateGroups[dateStr], zone);
     recordsByDate[dateStr] = recordsForDate;
     recordsForDate.forEach(r => {
       if(!existingNames.has(r.name)){
-        if(!newNameCandidates.has(r.name)) newNameCandidates.set(r.name, { firstSeenDate: dateStr, count: 0 });
-        newNameCandidates.get(r.name).count++;
+        if(!newNameCandidates.has(r.name)) newNameCandidates.set(r.name, { firstSeenDate: dateStr, count: 0, samples: [] });
+        const cand = newNameCandidates.get(r.name);
+        cand.count++;
+        cand.samples.push({ date: dateStr, text: r.rawText }); // 실제로 어떤 내용을 썼는지 확인용 원문
       }
     });
   });
@@ -4182,12 +4184,16 @@ function openNewNameConfirmModal(newNameCandidates){
     const optionsHtml = employeeOptions.map(emp =>
       `<option value="${escapeHtml(emp.name)}" ${similar && similar.name === emp.name ? 'selected' : ''}>${escapeHtml(emp.name)}님으로 인식</option>`
     ).join('');
+    const samplesHtml = info.samples.map(s =>
+      `<div style="font-size:11.5px; color:#555; background:var(--ash); border-radius:6px; padding:6px 8px; margin-top:4px; white-space:pre-wrap; word-break:break-word;"><b style="color:var(--smoke);">${escapeHtml(s.date)}</b> ${escapeHtml(s.text)}</div>`
+    ).join('');
     return `
     <div class="new-name-row" style="flex-direction:column; align-items:stretch; cursor:default;">
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="att-row-name">${escapeHtml(name)}</span>
         <span class="sub">${info.count}건 언급됨</span>
       </div>
+      <div style="margin:4px 0 8px; max-height:120px; overflow-y:auto;">${samplesHtml}</div>
       <select class="new-name-action" data-name="${escapeHtml(name)}" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--ash); font-size:13px; background:#fff;">
         <option value="__register__" ${similar ? '' : 'selected'}>신규 인원으로 추가 (출퇴근 기록 + 인원관리 등록)</option>
         ${optionsHtml}
