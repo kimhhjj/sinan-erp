@@ -1245,6 +1245,7 @@
           <h1>출퇴근관리</h1>
           <div style="display:flex; gap:8px;">
             <button class="btn danger" id="attClearAllBtn">전체 삭제</button>
+            <button class="btn" id="attSenderMapBtn">발신자 매핑 관리</button>
             <input type="file" id="attFileInput" accept=".txt" style="display:none;">
             <button class="btn primary" id="attUploadBtn">+ 대화내용(txt) 업로드</button>
           </div>
@@ -1631,6 +1632,32 @@
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelNewNameConfirm">취소</button>
       <button type="button" class="btn primary" id="confirmNewNameBtn">반영하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attSenderMapOverlay">
+  <div class="modal" style="max-width:520px;">
+    <h3>발신자 매핑 관리</h3>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">
+      동명이인이라 이름만으로 구분이 안 되는 경우, 카톡 발신자(닉네임)를 특정 직원으로 고정할 수 있습니다.
+      등록하면 그 발신자가 보내는 메시지는 본문 내용과 무관하게 항상 지정한 직원으로 인식됩니다 (단체 명단 보고에는 적용되지 않음).
+    </p>
+    <div id="attSenderMapList" style="max-height:260px; overflow-y:auto; margin-bottom:14px;"></div>
+    <div style="display:flex; gap:8px; align-items:flex-end; padding-top:10px; border-top:1px solid var(--ash);">
+      <div class="field" style="flex:1; margin:0;">
+        <label for="att-sender-map-sender">카톡 발신자(닉네임)</label>
+        <input type="text" id="att-sender-map-sender" placeholder="예) ㆍ">
+      </div>
+      <div class="field" style="flex:1; margin:0;">
+        <label for="att-sender-map-target">이 사람으로 인식</label>
+        <input type="text" id="att-sender-map-target" placeholder="예) 김준영(2)" list="attSenderMapEmployeeOptions">
+        <datalist id="attSenderMapEmployeeOptions"></datalist>
+      </div>
+      <button type="button" class="btn primary" id="addAttSenderMapBtn">추가</button>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px;">
+      <button type="button" class="btn" id="closeAttSenderMap">닫기</button>
     </div>
   </div>
 </div>
@@ -4011,9 +4038,20 @@ function extractRosterEntries(body){
       remainder = '';
     }else{
       const plainNameMatch = rest.match(/^([가-힣]{2,4})/);
-      if(!plainNameMatch) return;
-      name = plainNameMatch[1];
-      remainder = rest.slice(plainNameMatch[0].length);
+      if(plainNameMatch){
+        name = plainNameMatch[1];
+        remainder = rest.slice(plainNameMatch[0].length);
+      }else{
+        // "전   일_휴무"처럼 이름 글자 사이에 공백이 있는데 그 뒤에 태그가 구분자 없이 곧바로 붙어있으면
+        // 위 두 패턴이 모두 실패한다. 알려진 태그 단어를 기준으로 잘라내고 한 번 더 시도한다.
+        const tagWord = ATT_ROSTER_TAG_WORDS.find(t => rest.includes(t));
+        if(!tagWord) return;
+        const beforeTag = rest.slice(0, rest.indexOf(tagWord)).replace(/[\s\-_().]+$/, '');
+        const retryMatch = beforeTag.match(/^([가-힣](?:\s+[가-힣]){1,3})$/) || beforeTag.match(/^([가-힣]{2,4})$/);
+        if(!retryMatch) return;
+        name = retryMatch[1].replace(/\s+/g, '');
+        remainder = tagWord;
+      }
     }
     if(name.length < 2 || name.length > 4) return;
 
@@ -4021,6 +4059,27 @@ function extractRosterEntries(body){
     entries.push({ name, tag });
   });
   return entries;
+}
+
+// 단체 명단 메시지에 자주 같이 적히는 "총원:24명 / 출근:21명 / 휴무:02명" 같은 자체 집계 숫자를 읽어온다.
+// 라벨 글자 사이에 공백이 들어간 표기("총 인 원", "휴     무")도 허용하기 위해 줄 단위로 공백을 제거하고 비교한다.
+function parseRosterSummary(body){
+  const summary = {};
+  body.split('\n').forEach(line => {
+    const compact = line.replace(/\s+/g, '');
+    const m = compact.match(/^(총원|총인원|출근|퇴근|주간퇴근|연장퇴근|휴무자|휴무|조퇴|퇴사)[:：]?(\d+)명?$/);
+    if(!m) return;
+    const num = parseInt(m[2], 10);
+    switch(m[1]){
+      case '총원': case '총인원': summary.total = num; break;
+      case '출근': summary.checkIn = num; break;
+      case '퇴근': case '주간퇴근': case '연장퇴근': summary.checkOut = num; break;
+      case '휴무': case '휴무자': summary.leave = num; break;
+      case '조퇴': summary.earlyLeave = num; break;
+      case '퇴사': summary.resigned = num; break;
+    }
+  });
+  return summary;
 }
 
 function parseKakaoAttendance(text){
@@ -4042,6 +4101,24 @@ function parseKakaoAttendance(text){
     // ---- 1) 단체 명단 메시지인지 먼저 확인 ----
     const rosterEntries = extractRosterEntries(body);
     if(rosterEntries.length >= 3){
+      // 명단 작성자가 자체적으로 적어둔 "총원/출근/휴무" 등의 숫자와, 실제로 추출된 인원수가 맞는지 대조한다.
+      // 안 맞으면(파싱이 누락/오인식했을 가능성) 이 명단 전체를 검토 필요로 표시한다.
+      const summary = parseRosterSummary(body);
+      const countedLeave = rosterEntries.filter(e => e.tag === '휴무').length;
+      const countedResigned = rosterEntries.filter(e => e.tag === '퇴사').length;
+      const countedCheckIn = rosterEntries.length - countedLeave - countedResigned;
+      const mismatches = [];
+      if(summary.total != null && summary.total !== rosterEntries.length){
+        mismatches.push(`총원 보고${summary.total}/추출${rosterEntries.length}`);
+      }
+      if(summary.checkIn != null && summary.checkIn !== countedCheckIn){
+        mismatches.push(`출근 보고${summary.checkIn}/추출${countedCheckIn}`);
+      }
+      if(summary.leave != null && summary.leave !== countedLeave){
+        mismatches.push(`휴무 보고${summary.leave}/추출${countedLeave}`);
+      }
+      const summaryMismatchNote = mismatches.length ? ` ⚠명단숫자불일치(${mismatches.join(', ')})` : '';
+
       // 퇴근은 이번 범위에서 다루지 않음(보류) - 출근만 집계
       rosterEntries.forEach(entry => {
         if(entry.tag === '퇴사') return; // 퇴사자는 제외
@@ -4051,6 +4128,7 @@ function parseKakaoAttendance(text){
         const finalName = mapped || entry.name;
         // 태그가 명확하면(없음/관리/휴무/연장/주간/야간 중 하나) 확정 처리.
         // 그 외 애매한 경우만 검토 필요로 표시. 매핑된 이름은 항상 확정 처리.
+        // 다만 명단 총원/출근/휴무 숫자가 안 맞으면(summaryMismatchNote) 매핑 여부와 무관하게 검토 필요로 표시.
         const knownTags = ['', '관리', '휴무', '연장', '주간', '야간'];
         const isClearTag = knownTags.includes(entry.tag);
         results.push({
@@ -4058,8 +4136,8 @@ function parseKakaoAttendance(text){
           name: finalName,
           type: type,
           time: msg.time,
-          rawText: `[단체명단:${msg.sender}] ${entry.name}${entry.tag ? '-' + entry.tag : ''}`,
-          needsReview: mapped ? false : !isClearTag
+          rawText: `[단체명단:${msg.sender}] ${entry.name}${entry.tag ? '-' + entry.tag : ''}${summaryMismatchNote}`,
+          needsReview: !!summaryMismatchNote || (mapped ? false : !isClearTag)
         });
       });
       return; // 단체 명단으로 처리했으면 아래의 개인 보고 로직은 건너뜀
@@ -4087,10 +4165,18 @@ function parseKakaoAttendance(text){
       STATUS_EXACT_WORDS.includes(lastToken) &&
       tokens.slice(0, -1).every(t => /^[가-힣]{2,4}$/.test(t));
 
+    // 동명이인 등으로 이름만으로 구분이 안 되는 발신자는 "발신자 매핑 관리"에서 특정 직원으로 고정해둘 수 있다.
+    // 이 매핑이 있으면 본문 내용(이름 나열 여부)과 무관하게 항상 그 사람으로 확정 처리한다.
+    const senderOverride = attAliasMap[SENDER_MAP_PREFIX + msg.sender];
+
     // 이름 나열 형태가 아니면 기존 방식대로 보낸사람 닉네임을 그 사람 이름으로 사용
-    const names = isPureNameListMsg ? [...new Set(tokens.slice(0, -1))] : [msg.sender];
+    const names = senderOverride ? [senderOverride] : (isPureNameListMsg ? [...new Set(tokens.slice(0, -1))] : [msg.sender]);
 
     names.forEach(rawName => {
+      if(senderOverride){
+        results.push({ date: msg.date, name: senderOverride, type: type, time: msg.time, rawText: body, needsReview: false });
+        return;
+      }
       // 영구 매핑(alias_map)에 등록된 이름이면 실명으로 치환하고, 검토 필요 없이 바로 확정
       const mapped = attAliasMap[rawName];
       const finalName = mapped || rawName;
@@ -4288,6 +4374,92 @@ document.getElementById('confirmNewNameBtn').addEventListener('click', async () 
     }
   }
   pendingUploadData = null;
+});
+
+/* ---- 발신자(닉네임) 기준 강제 매핑 ---- */
+// 동명이인처럼 본문의 이름만으로는 구분할 수 없을 때, 카톡 발신자 닉네임을 특정 직원으로 고정한다.
+// 별도 시트를 새로 만들지 않고 기존 alias_map에 '__sender:닉네임' 형태의 키로 저장해서 재사용한다.
+const SENDER_MAP_PREFIX = '__sender:';
+function getSenderMapEntries(){
+  return Object.keys(attAliasMap)
+    .filter(k => k.startsWith(SENDER_MAP_PREFIX))
+    .map(k => ({ sender: k.slice(SENDER_MAP_PREFIX.length), realName: attAliasMap[k] }));
+}
+
+function renderAttSenderMapList(){
+  const area = document.getElementById('attSenderMapList');
+  const entries = getSenderMapEntries();
+  if(entries.length === 0){
+    area.innerHTML = `<p style="font-size:12.5px; color:var(--smoke); margin:0;">등록된 발신자 매핑이 없습니다.</p>`;
+  }else{
+    area.innerHTML = entries.map(e => `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--ash);">
+        <div style="font-size:13px;"><b>${escapeHtml(e.sender)}</b> <span style="color:var(--smoke);">→</span> ${escapeHtml(e.realName)}</div>
+        <button type="button" class="btn small danger att-sender-map-del" data-sender="${escapeHtml(e.sender)}" style="padding:4px 10px;">삭제</button>
+      </div>`).join('');
+  }
+  const optionsHtml = [...attEmployees].sort((a,b) => a.name.localeCompare(b.name))
+    .map(emp => `<option value="${escapeHtml(emp.name)}"></option>`).join('');
+  document.getElementById('attSenderMapEmployeeOptions').innerHTML = optionsHtml;
+}
+
+async function saveSenderMapToServer(){
+  // 주의: replaceAll은 시트 전체를 덮어쓰므로 발신자 매핑뿐 아니라 기존의 일반 별명(alias_map) 전부를 같이 보내야 한다.
+  const entries = Object.keys(attAliasMap).map(alias => ({ alias, realName: attAliasMap[alias] }));
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'alias_map', action: 'replaceAll', alias_map: entries })
+    });
+  }catch(e){
+    // 저장 실패해도 이번 세션 내 동작에는 지장 없음(다음 로딩 시 사라질 수 있음)
+  }
+}
+
+document.getElementById('attSenderMapBtn').addEventListener('click', () => {
+  renderAttSenderMapList();
+  document.getElementById('attSenderMapOverlay').classList.add('show');
+});
+document.getElementById('closeAttSenderMap').addEventListener('click', () => {
+  document.getElementById('attSenderMapOverlay').classList.remove('show');
+});
+document.getElementById('attSenderMapOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'attSenderMapOverlay') document.getElementById('attSenderMapOverlay').classList.remove('show');
+});
+document.getElementById('addAttSenderMapBtn').addEventListener('click', async () => {
+  const senderInput = document.getElementById('att-sender-map-sender');
+  const targetInput = document.getElementById('att-sender-map-target');
+  const sender = senderInput.value.trim();
+  const target = targetInput.value.trim();
+  if(!sender || !target){
+    showToast('발신자 닉네임과 대상 직원을 모두 입력해주세요.');
+    return;
+  }
+  const entry = { alias: SENDER_MAP_PREFIX + sender, realName: target };
+  attAliasMap[entry.alias] = entry.realName;
+  senderInput.value = '';
+  targetInput.value = '';
+  renderAttSenderMapList();
+  // 추가는 기존에 이미 동작이 확인된 append 방식 그대로 사용 (replaceAll은 삭제할 때만 사용)
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'alias_map', action: 'append', entry })
+    });
+  }catch(e){
+    // 저장 실패해도 이번 세션 내 동작에는 지장 없음
+  }
+  showToast(`"${sender}" 발신자를 "${target}"님으로 고정했습니다.`);
+});
+document.getElementById('attSenderMapList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.att-sender-map-del');
+  if(!btn) return;
+  const sender = btn.dataset.sender;
+  delete attAliasMap[SENDER_MAP_PREFIX + sender];
+  renderAttSenderMapList();
+  await saveSenderMapToServer();
 });
 
 async function commitAttendanceUpload(data, excludedNames, mergeMap, deferNames){
