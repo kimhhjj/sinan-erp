@@ -1156,6 +1156,7 @@
       <div class="nav-divider"></div>
       <p class="nav-label">카테고리</p>
       <button class="nav-item active" data-category="home">홈</button>
+      <button class="nav-item" data-category="mulsanpro">물산프로정보</button>
       <button class="nav-item" data-category="personnel">인원관리</button>
       <button class="nav-item" data-category="attendance">출퇴근관리</button>
       <button class="nav-item" data-category="accident">사고근태방</button>
@@ -1200,6 +1201,37 @@
               <div id="eventListArea"><div class="empty">날짜를 먼저 선택해주세요.</div></div>
             </div>
           </section>
+        </div>
+      </div>
+
+      <!-- ===== 물산프로정보 카테고리 ===== -->
+      <div id="category-mulsanpro" style="display:none;">
+        <div class="page-header">
+          <h1>물산프로정보</h1>
+        </div>
+
+        <div class="panel" style="margin-bottom:20px;">
+          <p class="block-title">인원 추가</p>
+          <form id="mulsanproAddForm" class="event-form">
+            <input type="text" id="mulsanpro-add-name" placeholder="이름 (예: 홍길동)" maxlength="60" required>
+            <button type="submit" class="btn primary">+ 인원 추가</button>
+          </form>
+        </div>
+
+        <div class="panel" style="margin-bottom:20px;">
+          <p class="block-title">부서 관리</p>
+          <form id="mulsanproDeptAddForm" class="event-form">
+            <input type="text" id="mulsanpro-dept-add-name" placeholder="부서 이름 (예: 안전, 시공)" maxlength="30" required>
+            <button type="submit" class="btn primary">+ 부서 추가</button>
+          </form>
+          <div class="att-zone-tabs" id="mulsanproDeptFilterArea" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="panel">
+          <p class="block-title">등록된 인원 (<span class="count" id="mulsanproCountLabel">0</span>명)</p>
+          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">이름을 클릭하면 연락처·부서·캠프위치·비고를 입력할 수 있습니다.</p>
+          <input type="text" id="mulsanproSearchInput" placeholder="이름으로 검색" style="max-width:280px; margin-bottom:14px;">
+          <div id="mulsanproListArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
 
@@ -1803,6 +1835,36 @@
 </div>
 
 
+<div class="modal-overlay" id="mulsanproProfileOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h3><span id="mulsanproProfileName"></span>님 프로필</h3>
+    <input type="hidden" id="mulsanpro-profile-name">
+    <div class="field" style="margin-bottom:12px;">
+      <label for="mulsanpro-profile-phone">연락처</label>
+      <input type="tel" id="mulsanpro-profile-phone" placeholder="010-0000-0000">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="mulsanpro-profile-dept">부서</label>
+      <select id="mulsanpro-profile-dept">
+        <option value="">미배정</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="mulsanpro-profile-camp">캠프위치</label>
+      <input type="text" id="mulsanpro-profile-camp" placeholder="예: 1캠프 3층">
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="mulsanpro-profile-note">비고</label>
+      <textarea id="mulsanpro-profile-note" placeholder="예) 비고 메모"></textarea>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelMulsanproProfile">취소</button>
+      <button type="button" class="btn primary" id="saveMulsanproProfile">저장</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="attEditRowOverlay">
   <div class="modal" style="max-width:460px;">
     <h3>출퇴근 기록 수정</h3>
@@ -2047,6 +2109,7 @@ document.querySelectorAll('.subtab').forEach(t => {
 function switchCategory(name){
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.category === name));
   document.getElementById('category-home').style.display = name === 'home' ? '' : 'none';
+  document.getElementById('category-mulsanpro').style.display = name === 'mulsanpro' ? '' : 'none';
   document.getElementById('category-personnel').style.display = name === 'personnel' ? '' : 'none';
   document.getElementById('category-attendance').style.display = name === 'attendance' ? '' : 'none';
   document.getElementById('category-accident').style.display = name === 'accident' ? '' : 'none';
@@ -2055,6 +2118,7 @@ function switchCategory(name){
   document.getElementById('category-safety').style.display = name === 'safety' ? '' : 'none';
   if(name === 'todos') renderTodoHistory();
   if(name === 'attendance' || name === 'personnel') initAttendanceViewIfNeeded();
+  if(name === 'mulsanpro') initMulsanProViewIfNeeded();
 }
 
 document.querySelectorAll('.nav-item').forEach(t => {
@@ -3943,6 +4007,224 @@ document.getElementById('savePersonnelProfile').addEventListener('click', async 
   closePersonnelProfile();
   showToast(`"${emp.name}"님 프로필을 저장했습니다.`);
   await saveEmployees();
+});
+
+/* ===== 물산프로정보 카테고리 ===== */
+// 인원관리와 완전히 별도의 명단. 부서(mulsanProDepts)는 팀(attTeams)과 동일한 방식으로
+// "기본값 + 인원에게 지정된 값"만 유지되며, 서버에 별도 저장소가 없어 아무도 배정되지 않은
+// 새 부서는 새로고침 시 사라질 수 있다(인원관리의 팀 관리와 동일한 한계).
+let mulsanProList = []; // [{name, phone, dept, campLocation, note, active, firstSeenDate}]
+let mulsanProDepts = ['안전', '시공'];
+let mulsanProDeptFilter = ''; // '' = 전체
+let mulsanProSearchQuery = '';
+let mulsanProInitialized = false;
+
+function initMulsanProViewIfNeeded(){
+  if(mulsanProInitialized) return;
+  mulsanProInitialized = true;
+  loadMulsanProData();
+}
+
+async function loadMulsanProData(){
+  try{
+    const res = await fetch(SHEET_API_URL + '?type=mulsan_pro').then(r => r.json());
+    mulsanProList = (res.ok && res.mulsan_pro) ? res.mulsan_pro : [];
+  }catch(e){
+    mulsanProList = [];
+  }
+  refreshMulsanProDepts();
+  renderMulsanProList();
+}
+
+async function saveMulsanProList(){
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'mulsan_pro', action: 'replaceAll', mulsan_pro: mulsanProList })
+    });
+  }catch(e){
+    showToast('물산프로정보 저장에 실패했습니다.');
+  }
+}
+
+function refreshMulsanProDepts(){
+  const set = new Set(mulsanProDepts);
+  mulsanProList.forEach(p => { if(p.dept) set.add(p.dept); });
+  mulsanProDepts = [...set].sort((a,b) => a.localeCompare(b, 'ko'));
+}
+
+function renderMulsanProDeptFilter(){
+  const area = document.getElementById('mulsanproDeptFilterArea');
+  if(!area) return;
+  const counts = {};
+  mulsanProList.forEach(p => { if(p.dept) counts[p.dept] = (counts[p.dept] || 0) + 1; });
+  let html = `<button type="button" class="att-zone-tab mulsanpro-dept-tab${mulsanProDeptFilter === '' ? ' active' : ''}" data-dept="">전체</button>`;
+  html += mulsanProDepts.map(dept => `
+    <span style="display:inline-flex; align-items:center; gap:2px;">
+      <button type="button" class="att-zone-tab mulsanpro-dept-tab${mulsanProDeptFilter === dept ? ' active' : ''}" data-dept="${escapeHtml(dept)}">${escapeHtml(dept)} (${counts[dept] || 0})</button>
+      <button type="button" class="mulsanpro-dept-delete" data-dept="${escapeHtml(dept)}" title="부서 삭제" style="background:none; border:none; color:var(--smoke); cursor:pointer; font-size:13px; padding:2px 6px;">✕</button>
+    </span>`).join('');
+  area.innerHTML = html;
+}
+
+function renderMulsanProList(){
+  const area = document.getElementById('mulsanproListArea');
+  if(!area) return;
+  renderMulsanProDeptFilter();
+  let sorted = [...mulsanProList].sort((a,b) => a.name.localeCompare(b.name));
+  if(mulsanProDeptFilter){
+    sorted = sorted.filter(p => p.dept === mulsanProDeptFilter);
+  }
+  if(mulsanProSearchQuery){
+    const q = mulsanProSearchQuery.toLowerCase();
+    sorted = sorted.filter(p => p.name.toLowerCase().includes(q));
+  }
+  document.getElementById('mulsanproCountLabel').textContent = sorted.filter(p => p.active !== 'false').length;
+  if(sorted.length === 0){
+    area.innerHTML = '<div class="empty">표시할 인원이 없습니다.</div>';
+    return;
+  }
+  area.innerHTML = sorted.map(p => {
+    const isActive = p.active !== 'false';
+    const deptBadgeHtml = p.dept
+      ? `<span class="att-zone-badge" style="background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35);">${escapeHtml(p.dept)}</span>`
+      : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">부서미배정</span>`;
+    const campText = p.campLocation ? escapeHtml(p.campLocation) : '캠프위치 미입력';
+    const noteText = p.note ? escapeHtml(p.note) : '비고 없음';
+    return `<div class="att-emp-row">
+      <button type="button" class="att-row-name" data-action="mulsanpro-profile" data-name="${escapeHtml(p.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(p.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+      ${deptBadgeHtml}
+      <span class="sub">캠프: ${campText}</span>
+      <span class="sub">비고: ${noteText}</span>
+      <button type="button" class="btn small" data-action="mulsanpro-toggle-active" data-name="${escapeHtml(p.name)}">${isActive ? '비활성화' : '활성화'}</button>
+      <button type="button" class="btn small danger" data-action="mulsanpro-delete" data-name="${escapeHtml(p.name)}">삭제</button>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('mulsanproSearchInput').addEventListener('input', (e) => {
+  mulsanProSearchQuery = e.target.value.trim();
+  renderMulsanProList();
+});
+
+document.getElementById('mulsanproAddForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('mulsanpro-add-name');
+  const name = input.value.trim();
+  if(!name) return;
+  if(mulsanProList.find(p => p.name === name)){
+    showToast('이미 등록된 이름입니다.');
+    return;
+  }
+  mulsanProList.push({ name: name, firstSeenDate: todayDateOnly(), active: 'true' });
+  input.value = '';
+  renderMulsanProList();
+  showToast(`"${name}"님을 추가했습니다.`);
+  await saveMulsanProList();
+});
+
+document.getElementById('mulsanproDeptAddForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('mulsanpro-dept-add-name');
+  const name = input.value.trim();
+  if(!name) return;
+  if(mulsanProDepts.includes(name)){
+    showToast('이미 있는 부서 이름입니다.');
+    return;
+  }
+  mulsanProDepts.push(name);
+  mulsanProDepts.sort((a,b) => a.localeCompare(b, 'ko'));
+  input.value = '';
+  renderMulsanProList();
+  showToast(`"${name}" 부서를 생성했습니다. 인원의 이름을 클릭해 배정해주세요.`);
+});
+
+document.getElementById('mulsanproDeptFilterArea').addEventListener('click', async (e) => {
+  const delBtn = e.target.closest('.mulsanpro-dept-delete');
+  if(delBtn){
+    const dept = delBtn.dataset.dept;
+    const memberCount = mulsanProList.filter(p => p.dept === dept).length;
+    const msg = memberCount > 0
+      ? `"${dept}" 부서를 삭제할까요? 이 부서 소속 ${memberCount}명은 부서미배정 상태가 됩니다.`
+      : `"${dept}" 부서를 삭제할까요?`;
+    if(!confirm(msg)) return;
+    mulsanProList.forEach(p => { if(p.dept === dept) p.dept = ''; });
+    mulsanProDepts = mulsanProDepts.filter(d => d !== dept);
+    if(mulsanProDeptFilter === dept) mulsanProDeptFilter = '';
+    renderMulsanProList();
+    showToast(`"${dept}" 부서를 삭제했습니다.`);
+    await saveMulsanProList();
+    return;
+  }
+  const tabBtn = e.target.closest('.mulsanpro-dept-tab');
+  if(tabBtn){
+    mulsanProDeptFilter = tabBtn.dataset.dept;
+    renderMulsanProList();
+  }
+});
+
+document.getElementById('mulsanproListArea').addEventListener('click', async (e) => {
+  const profileBtn = e.target.closest('button[data-action="mulsanpro-profile"]');
+  if(profileBtn){
+    openMulsanProProfileModal(profileBtn.dataset.name);
+    return;
+  }
+  const toggleBtn = e.target.closest('button[data-action="mulsanpro-toggle-active"]');
+  if(toggleBtn){
+    const p = mulsanProList.find(x => x.name === toggleBtn.dataset.name);
+    if(p){
+      p.active = p.active === 'false' ? 'true' : 'false';
+      renderMulsanProList();
+      await saveMulsanProList();
+    }
+    return;
+  }
+  const deleteBtn = e.target.closest('button[data-action="mulsanpro-delete"]');
+  if(deleteBtn){
+    const name = deleteBtn.dataset.name;
+    if(!confirm(`"${name}"님을 삭제할까요?`)) return;
+    mulsanProList = mulsanProList.filter(x => x.name !== name);
+    renderMulsanProList();
+    showToast(`"${name}"님을 삭제했습니다.`);
+    await saveMulsanProList();
+  }
+});
+
+/* ---- 물산프로 프로필 ---- */
+function openMulsanProProfileModal(name){
+  const p = mulsanProList.find(x => x.name === name);
+  if(!p) return;
+  document.getElementById('mulsanpro-profile-name').value = p.name;
+  document.getElementById('mulsanproProfileName').textContent = p.name;
+  document.getElementById('mulsanpro-profile-phone').value = p.phone || '';
+  const deptSelect = document.getElementById('mulsanpro-profile-dept');
+  deptSelect.innerHTML = '<option value="">미배정</option>' + mulsanProDepts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  deptSelect.value = p.dept || '';
+  document.getElementById('mulsanpro-profile-camp').value = p.campLocation || '';
+  document.getElementById('mulsanpro-profile-note').value = p.note || '';
+  document.getElementById('mulsanproProfileOverlay').classList.add('show');
+}
+function closeMulsanProProfile(){
+  document.getElementById('mulsanproProfileOverlay').classList.remove('show');
+}
+document.getElementById('cancelMulsanproProfile').addEventListener('click', closeMulsanProProfile);
+document.getElementById('mulsanproProfileOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'mulsanproProfileOverlay') closeMulsanProProfile();
+});
+document.getElementById('saveMulsanproProfile').addEventListener('click', async () => {
+  const name = document.getElementById('mulsanpro-profile-name').value;
+  const p = mulsanProList.find(x => x.name === name);
+  if(!p) return;
+  p.phone = document.getElementById('mulsanpro-profile-phone').value.trim();
+  p.dept = document.getElementById('mulsanpro-profile-dept').value;
+  p.campLocation = document.getElementById('mulsanpro-profile-camp').value.trim();
+  p.note = document.getElementById('mulsanpro-profile-note').value.trim();
+  closeMulsanProProfile();
+  refreshMulsanProDepts();
+  renderMulsanProList();
+  showToast(`"${p.name}"님 프로필을 저장했습니다.`);
+  await saveMulsanProList();
 });
 
 /* ---- 카톡 txt 파싱 ---- */
