@@ -4088,14 +4088,20 @@ function renderMulsanProList(){
   area.innerHTML = sorted.map(p => {
     const isActive = p.active !== 'false';
     const deptBadgeHtml = p.dept
-      ? `<span class="att-zone-badge" style="background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35);">${escapeHtml(p.dept)}</span>`
-      : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">부서미배정</span>`;
-    const campText = p.campLocation ? escapeHtml(p.campLocation) : '캠프위치 미입력';
+      ? `<span class="att-zone-badge" style="background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(p.dept)}</span>`
+      : `<span class="att-zone-badge" style="background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">부서미배정</span>`;
+    const phoneHtml = p.phone
+      ? `<span style="font-size:13px; font-weight:700; color:var(--charcoal);">${escapeHtml(p.phone)}</span>`
+      : '';
+    const campHtml = p.campLocation
+      ? `<span style="font-size:12.5px; font-weight:800; color:var(--blue); background:var(--shadow-tint-blue); border:1px solid #b8e0ff; padding:3px 10px; border-radius:6px;">📍 ${escapeHtml(p.campLocation)}</span>`
+      : `<span class="sub">캠프위치 미입력</span>`;
     const noteText = p.note ? escapeHtml(p.note) : '비고 없음';
     return `<div class="att-emp-row">
       <button type="button" class="att-row-name" data-action="mulsanpro-profile" data-name="${escapeHtml(p.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(p.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+      ${phoneHtml}
       ${deptBadgeHtml}
-      <span class="sub">캠프: ${campText}</span>
+      ${campHtml}
       <span class="sub">비고: ${noteText}</span>
       <button type="button" class="btn small" data-action="mulsanpro-toggle-active" data-name="${escapeHtml(p.name)}">${isActive ? '비활성화' : '활성화'}</button>
       <button type="button" class="btn small danger" data-action="mulsanpro-delete" data-name="${escapeHtml(p.name)}">삭제</button>
