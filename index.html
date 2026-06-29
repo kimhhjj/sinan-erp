@@ -1331,7 +1331,7 @@
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
             <div>
               <p class="block-title">등록된 인원 (<span class="count" id="personnelCountLabel">0</span>명)</p>
-              <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">대화내용 업로드 시 새 이름이 나오면 신규 등록 / 기존 인원 연결 / 기록만 저장(보류) / 무시 중 선택할 수 있습니다. "보류"로 남은 인원은 출퇴근관리 표에 "미등록" 배지로 표시되며 거기서 바로 추가할 수 있습니다. 이름을 클릭하면 프로필을 볼 수 있습니다.</p>
+              <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">신규 인원 등록은 이 화면에서만 합니다. 출퇴근관리에서 대화내용 업로드 시 인원관리에 없는 이름이 나오면 기존 인원과 연결하거나, 출퇴근 기록만 저장(이 명단에는 추가 안 함)하거나, 무시할 수 있습니다. 명단에 없는 이름은 출퇴근관리 표에 "미등록" 배지로만 표시됩니다. 이름을 클릭하면 프로필을 볼 수 있습니다.</p>
             </div>
             <button type="button" class="btn small" id="personnelZoneBulkAssignBtn">출퇴근 기록 기준 구역 일괄배정</button>
           </div>
@@ -1728,7 +1728,7 @@
 <div class="modal-overlay" id="newNameConfirmOverlay">
   <div class="modal" style="max-width:480px;">
     <h3>등록되지 않은 이름이 발견되었습니다</h3>
-    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">인원관리에 없는 이름입니다. 이름마다 처리 방식을 선택해주세요 — 신규 인원으로 등록(기록+명단 추가), 기존 인원과 연결, 기록만 저장(명단 추가는 보류), 무시(기록도 안 남김) 중 하나입니다.</p>
+    <p style="font-size:13px; color:var(--smoke); margin:0 0 14px;">인원관리에 없는 이름입니다. 이름마다 처리 방식을 선택해주세요 — 기존 인원과 연결, 출퇴근 기록만 저장(인원관리에는 추가 안 함), 무시(기록도 안 남김) 중 하나입니다. 신규 인원 등록은 인원관리 화면에서 해주세요.</p>
     <div id="newNameConfirmList" style="max-height:340px; overflow-y:auto; margin-bottom:18px;"></div>
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelNewNameConfirm">취소</button>
@@ -3830,14 +3830,6 @@ document.getElementById('confirmAttClearDate').addEventListener('click', async (
   }
 });
 
-function ensureEmployeeExists(name, dateStr){
-  if(!attEmployees.find(e => e.name === name)){
-    attEmployees.push({ name: name, firstSeenDate: dateStr, active: 'true' });
-    return true;
-  }
-  return false;
-}
-
 /* ===== 인원관리 카테고리 ===== */
 // 인원의 구역(A4/A5)은 emp.zone에 지정한 값만 사용한다. "구역수정" 클릭 시 선택 모달에서 직접 고른다.
 let pendingPersonnelZoneEditName = null;
@@ -4624,17 +4616,26 @@ function parseKakaoAttendance(text){
 function buildAttendanceRecordsForDate(dateStr, parsedForDate, zone){
   // parsedForDate: 그 날짜에 해당하는 파싱 결과 배열
   const byName = {};
+  // 같은 사람이 같은 종류(출근/퇴근/휴무)를 같은 날 여러 번 보고한 횟수 (2026-06-30 추가: 중복보고 필터링용)
+  const reportCounts = {};
   parsedForDate.forEach(p => {
     if(!byName[p.name]) byName[p.name] = { date: dateStr, name: p.name, zone: zone || '', checkIn: '', checkInTime: '', checkOut: '', checkOutTime: '', leave: '', leaveTime: '', status: 'confirmed', rawText: '', reviewDecision: '' };
     const rec = byName[p.name];
-    // 출근/퇴근/휴무는 항상 확정 처리. 특이사항(미태깅, 오류 등)이 있으면 "검토 필요"도 같이 표시.
-    if(p.type === 'checkIn'){ rec.checkIn = '출근완료'; rec.checkInTime = p.time || ''; }
-    if(p.type === 'checkOut'){ rec.checkOut = '퇴근완료'; rec.checkOutTime = p.time || ''; }
-    if(p.type === 'leave'){ rec.leave = '휴무'; rec.leaveTime = p.time || ''; }
+    const countKey = p.name + '|' + p.type;
+    reportCounts[countKey] = (reportCounts[countKey] || 0) + 1;
+    // 같은 사람이 같은 종류를 같은 날 또 보고한 경우(중복 전송/재전송)는 첫 보고만 확정 반영하고
+    // 그 이후 중복 보고는 시간/원문에 추가로 쌓지 않고 걸러낸다 (검토 필요 여부는 아래에서 별도로 항상 반영).
+    if(reportCounts[countKey] === 1){
+      // 출근/퇴근/휴무는 항상 확정 처리. 특이사항(미태깅, 오류 등)이 있으면 "검토 필요"도 같이 표시.
+      if(p.type === 'checkIn'){ rec.checkIn = '출근완료'; rec.checkInTime = p.time || ''; }
+      if(p.type === 'checkOut'){ rec.checkOut = '퇴근완료'; rec.checkOutTime = p.time || ''; }
+      if(p.type === 'leave'){ rec.leave = '휴무'; rec.leaveTime = p.time || ''; }
+      // 검토 시 참고할 수 있도록, 그날 이 사람이 보낸 출퇴근 관련 메시지를 전부 누적해서 저장
+      const tagged = `[${p.time || '시각미상'}] ${p.rawText}`;
+      rec.rawText = rec.rawText ? (rec.rawText + ' || ' + tagged) : tagged;
+    }
+    // 중복 보고라도 메시지 내용 자체에 문제가 있을 수 있으므로 검토 필요 여부는 항상 반영
     if(p.needsReview) rec.status = 'needs_review';
-    // 검토 시 참고할 수 있도록, 그날 이 사람이 보낸 출퇴근 관련 메시지를 전부 누적해서 저장
-    const tagged = `[${p.time || '시각미상'}] ${p.rawText}`;
-    rec.rawText = rec.rawText ? (rec.rawText + ' || ' + tagged) : tagged;
   });
   // 출근/휴무가 동시에 찍힌 경우(서로 다른 메시지에서 상반된 정보가 들어온 경우)는
   // 자동으로 어느 쪽이 맞는지 판단할 수 없으므로 검토 필요로 전환
@@ -4712,14 +4713,50 @@ document.getElementById('attFileInput').addEventListener('change', async (e) => 
   }
 });
 
-// 새로 발견된 이름과 비슷한 기존 직원을 찾는다 (한쪽이 다른 쪽 이름을 포함하는 경우, 예: "김용숙 82335414" ⊃ "김용숙")
+/* ---- 이름 유사도 비교 (2026-06-30 추가: 검색엔진처럼 오타/변형까지 잡아내는 중복·오인식 탐지) ---- */
+// 두 문자열 사이의 편집거리(Levenshtein distance)를 계산한다. 한 문자열을 다른 쪽으로 바꾸는 데
+// 필요한 글자 추가/삭제/교체의 최소 횟수로, 숫자가 작을수록(0에 가까울수록) 비슷한 문자열이다.
+function levenshteinDistance(a, b){
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  const dp = new Array(n + 1);
+  for(let j = 0; j <= n; j++) dp[j] = j;
+  for(let i = 1; i <= m; i++){
+    let prev = dp[0];
+    dp[0] = i;
+    for(let j = 1; j <= n; j++){
+      const temp = dp[j];
+      dp[j] = (a[i - 1] === b[j - 1]) ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+// 두 이름이 "같은 사람일 가능성이 높은" 조합인지 판단한다. 사람이 최종 확인/선택하는 화면(신규이름
+// 연결 추천, 중복 의심 인물 패널)에서만 쓰이므로 다소 넓게(검색엔진처럼) 잡아내고 자동으로 합치지는 않는다.
+//  1) 한쪽 이름이 다른 쪽을 통째로 포함 (예: "김용숙 82335414" ⊃ "김용숙")
+//  2) 둘 다 순수 한글 2~5자 이름이고 길이 차이가 1 이하면서 편집거리가 1 이하 (오타/오인식 한 글자 차이, 예: "김용숙"/"김용슉")
+function isNameSimilar(a, b){
+  if(a === b) return false;
+  if(a.includes(b) || b.includes(a)) return true;
+  if(/^[가-힣]{2,5}$/.test(a) && /^[가-힣]{2,5}$/.test(b) && Math.abs(a.length - b.length) <= 1){
+    return levenshteinDistance(a, b) <= 1;
+  }
+  return false;
+}
+
+// 새로 발견된 이름과 비슷한 기존 직원을 찾는다 (부분 포함 + 한 글자 오타 수준까지 잡아냄)
 function findSimilarExistingEmployee(newName){
-  const candidates = attEmployees.filter(emp => {
-    if(emp.name === newName) return false;
-    return newName.includes(emp.name) || emp.name.includes(newName);
+  const candidates = attEmployees.filter(emp => isNameSimilar(newName, emp.name));
+  // 포함관계인 후보를 오타 후보보다 우선하고, 그 안에서는 더 짧은(순수한 이름에 가까운) 것을 우선
+  candidates.sort((a, b) => {
+    const aContain = (newName.includes(a.name) || a.name.includes(newName)) ? 0 : 1;
+    const bContain = (newName.includes(b.name) || b.name.includes(newName)) ? 0 : 1;
+    if(aContain !== bContain) return aContain - bContain;
+    return a.name.length - b.name.length;
   });
-  // 더 짧은(순수한 이름에 가까운) 후보를 우선
-  candidates.sort((a, b) => a.name.length - b.name.length);
   return candidates[0] || null;
 }
 
@@ -4743,9 +4780,8 @@ function openNewNameConfirmModal(newNameCandidates){
       </div>
       <div style="margin:4px 0 8px; max-height:120px; overflow-y:auto;">${samplesHtml}</div>
       <select class="new-name-action" data-name="${escapeHtml(name)}" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--ash); font-size:13px; background:#fff;">
-        <option value="__register__" ${similar ? '' : 'selected'}>신규 인원으로 추가 (출퇴근 기록 + 인원관리 등록)</option>
         ${optionsHtml}
-        <option value="__defer__">출퇴근 기록만 저장 (인원관리 등록은 보류)</option>
+        <option value="__defer__" ${similar ? '' : 'selected'}>출퇴근 기록만 저장 (인원관리에는 추가 안 함)</option>
         <option value="__ignore__">무시 (이번 업로드에서 기록도 남기지 않음)</option>
       </select>
     </div>`;
@@ -4767,7 +4803,6 @@ document.getElementById('newNameConfirmOverlay').addEventListener('click', (e) =
 document.getElementById('confirmNewNameBtn').addEventListener('click', async () => {
   const selects = Array.from(document.querySelectorAll('.new-name-action'));
   const excludedNames = [];
-  const deferNames = [];
   const mergeMap = {};
   const newAliases = [];
   selects.forEach(sel => {
@@ -4776,9 +4811,7 @@ document.getElementById('confirmNewNameBtn').addEventListener('click', async () 
     if(value === '__ignore__'){
       excludedNames.push(name);
     }else if(value === '__defer__'){
-      deferNames.push(name);
-    }else if(value === '__register__'){
-      // 그대로 두면 commitAttendanceUpload가 자동으로 신규 인원으로 등록함
+      // 출퇴근 기록만 저장하고 인원관리에는 추가하지 않음 (기본값) - 별도 처리 불필요
     }else{
       mergeMap[name] = value;
       if(name !== value) newAliases.push({ alias: name, realName: value });
@@ -4786,7 +4819,7 @@ document.getElementById('confirmNewNameBtn').addEventListener('click', async () 
   });
   document.getElementById('newNameConfirmOverlay').classList.remove('show');
   if(!pendingUploadData) return;
-  await commitAttendanceUpload(pendingUploadData, excludedNames, mergeMap, deferNames);
+  await commitAttendanceUpload(pendingUploadData, excludedNames, mergeMap);
   for(const entry of newAliases){
     attAliasMap[entry.alias] = entry.realName;
     try{
@@ -4888,15 +4921,15 @@ document.getElementById('attSenderMapList').addEventListener('click', async (e) 
   await saveSenderMapToServer();
 });
 
-async function commitAttendanceUpload(data, excludedNames, mergeMap, deferNames){
+async function commitAttendanceUpload(data, excludedNames, mergeMap){
   mergeMap = mergeMap || {};
   const excludeSet = new Set(excludedNames);
-  const deferSet = new Set(deferNames || []); // 출퇴근 기록은 남기지만 인원관리(명단)에는 추가하지 않을 이름들
   const dateStrs = Object.keys(data.recordsByDate);
 
   // 1) 화면(로컬 캐시) 먼저 갱신 - 서버 응답을 기다리지 않고 즉시 반영
+  // 주의: 출퇴근관리는 출퇴근 기록만 관리한다 (2026-06-30 변경). 업로드로 새 이름이 나와도
+  // 인원관리(employees) 명단에는 절대 자동 추가하지 않음 - 신규 인원 등록은 인원관리 화면에서만 한다.
   const allNewRecords = [];
-  const newEmployeeEntries = [];
   dateStrs.forEach(dateStr => {
     const recordsForDate = data.recordsByDate[dateStr]
       .filter(r => !excludeSet.has(r.name))
@@ -4926,10 +4959,6 @@ async function commitAttendanceUpload(data, excludedNames, mergeMap, deferNames)
     const mergedRecords = Object.values(merged);
     mergedRecords.forEach(r => {
       allNewRecords.push(r);
-      // 보류(defer) 선택한 이름은 출퇴근 기록은 남기되 인원관리 명단에는 추가하지 않음
-      if(!deferSet.has(r.name) && ensureEmployeeExists(r.name, dateStr)){
-        newEmployeeEntries.push({ name: r.name, firstSeenDate: dateStr, active: 'true' });
-      }
     });
   });
   const dateSet = new Set(dateStrs);
@@ -4951,8 +4980,7 @@ async function commitAttendanceUpload(data, excludedNames, mergeMap, deferNames)
         type: 'attendance',
         action: 'uploadBatch',
         dates: dateStrs,
-        records: allNewRecords,
-        newEmployees: newEmployeeEntries
+        records: allNewRecords
       })
     });
     showToast(`${dateStrs.length}개 날짜의 출퇴근 기록이 반영되었습니다.`);
@@ -5116,7 +5144,6 @@ function renderAttTable(){
     const isRegistered = employeeNameSet.has(name);
     const unregBadge = isRegistered ? '' : `<span class="att-zone-badge" style="background:var(--no-bg); color:var(--no); border:1px solid var(--no-bg);">미등록</span>`;
     const editBtn = `<button class="btn small" data-action="att-edit-row" data-name="${escapeHtml(name)}">수정</button>`;
-    const quickRegisterBtn = isRegistered ? '' : `<button class="btn small" data-action="att-quick-register" data-name="${escapeHtml(name)}">인원 추가</button>`;
     if(!r){
       html += `<tr data-row-name="${escapeHtml(name)}">
         <td class="att-row-name">${escapeHtml(name)}</td>
@@ -5137,7 +5164,7 @@ function renderAttTable(){
         <td class="att-row-name">${escapeHtml(name)}${zoneBadge}${unregBadge}</td>
         <td colspan="5">${statusPillHtml('확정 대기 (출근·휴무 정보 충돌)', 'unknown')}</td>
         <td>${noteCell}</td>
-        <td>${editBtn}${quickRegisterBtn}</td>
+        <td>${editBtn}</td>
       </tr>`;
       return;
     }
@@ -5149,7 +5176,7 @@ function renderAttTable(){
       <td>${r.checkOutTime || ''}</td>
       <td>${r.leave ? statusPillHtml('휴무' + (r.leaveTime ? ` ${r.leaveTime}` : ''), 'leave') : '<span class="sub">-</span>'}</td>
       <td>${noteCell}</td>
-      <td>${editBtn}${quickRegisterBtn}</td>
+      <td>${editBtn}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -5168,17 +5195,6 @@ document.getElementById('attTableArea').addEventListener('click', async (e) => {
   const editBtn = e.target.closest('[data-action="att-edit-row"]');
   if(editBtn){
     openAttEditRow(editBtn.dataset.name);
-    return;
-  }
-  const registerBtn = e.target.closest('[data-action="att-quick-register"]');
-  if(registerBtn){
-    const name = registerBtn.dataset.name;
-    if(ensureEmployeeExists(name, attCurrentDate)){
-      renderAttTable();
-      renderPersonnelList();
-      showToast(`"${name}"님을 인원관리에 추가했습니다.`);
-      await saveEmployees();
-    }
     return;
   }
   const el = e.target.closest('[data-action="att-review-cell"]');
@@ -5252,17 +5268,13 @@ document.getElementById('confirmAttEditRow').addEventListener('click', async () 
     rec.manualNote = note;
   }
 
-  // 이름이 바뀌었으면 직원 명단도 갱신
+  // 이름이 바뀌면 인원관리 명단에 새로 추가하지 않음(출퇴근관리는 출퇴근 기록만 관리) -
+  // 다른 날짜에도 oldName으로 된 기록이 남아있는지 확인해서, 없으면 직원 명단에서 oldName만 정리
   if(newName !== oldName){
-    ensureEmployeeExists(newName, attCurrentDate);
-    // 다른 날짜에도 oldName으로 된 기록이 남아있는지 확인 - 없으면 직원 명단에서 oldName 제거
     const oldNameStillUsed = attRecords.some(r => r.name === oldName);
     if(!oldNameStillUsed){
       attEmployees = attEmployees.filter(e => e.name !== oldName);
     }
-  }
-  if(!attEmployees.find(e => e.name === newName)){
-    ensureEmployeeExists(newName, attCurrentDate);
   }
 
   renderAttTable();
@@ -5332,7 +5344,7 @@ function findDuplicateGroups(){
     const group = names.filter(other => {
       if(other === name) return false;
       if(used.has(other)) return false;
-      return other.includes(name) || name.includes(other);
+      return isNameSimilar(name, other);
     });
     if(group.length > 0){
       const fullGroup = [name, ...group];
