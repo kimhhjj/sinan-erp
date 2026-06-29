@@ -4098,14 +4098,14 @@ function renderMulsanProList(){
       : `<span class="sub">캠프위치 미입력</span>`;
     const noteText = p.note ? escapeHtml(p.note) : '특이사항 없음';
     const nameHtml = `<button type="button" class="att-row-name" data-action="mulsanpro-profile" data-name="${escapeHtml(p.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; display:block;">${escapeHtml(p.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}`;
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(90px,14%) minmax(90px,13%) minmax(70px,10%) minmax(110px,16%) minmax(80px,1fr) minmax(64px,9%) minmax(56px,8%); gap:14px; align-items:center; width:100%; box-sizing:border-box;">
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(90px,14%) minmax(140px,13%) minmax(70px,10%) minmax(160px,16%) minmax(80px,1fr) minmax(64px,9%) minmax(56px,8%); gap:14px; align-items:center; width:100%; box-sizing:border-box;">
       <div style="overflow:hidden;">${nameHtml}</div>
-      <div style="overflow:hidden;">${phoneHtml}</div>
+      <div>${phoneHtml}</div>
       <div style="overflow:hidden;">${deptBadgeHtml}</div>
-      <div style="overflow:hidden;">${campHtml}</div>
+      <div>${campHtml}</div>
       <div class="sub" title="${noteText}" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${noteText}</div>
-      <button type="button" class="btn small" data-action="mulsanpro-toggle-active" data-name="${escapeHtml(p.name)}" style="width:100%; padding-left:4px; padding-right:4px;">${isActive ? '비활성화' : '활성화'}</button>
-      <button type="button" class="btn small danger" data-action="mulsanpro-delete" data-name="${escapeHtml(p.name)}" style="width:100%; padding-left:4px; padding-right:4px;">삭제</button>
+      <button type="button" class="btn small" data-action="mulsanpro-toggle-active" data-name="${escapeHtml(p.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">${isActive ? '비활성화' : '활성화'}</button>
+      <button type="button" class="btn small danger" data-action="mulsanpro-delete" data-name="${escapeHtml(p.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
 }
