@@ -4091,14 +4091,14 @@ function renderMulsanProList(){
       ? `<span class="att-zone-badge" style="white-space:nowrap; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(p.dept)}</span>`
       : `<span class="att-zone-badge" style="white-space:nowrap; background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">부서미배정</span>`;
     const phoneHtml = p.phone
-      ? `<span style="white-space:nowrap; display:inline-block; text-align:center; font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(p.phone)}</span>`
+      ? `<span style="white-space:nowrap; display:inline-block; text-align:center; font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(p.phone.replace(/-/g, ' - '))}</span>`
       : `<span class="sub">번호 미입력</span>`;
     const campHtml = p.campLocation
       ? `<span style="white-space:nowrap; font-size:12.5px; font-weight:800; color:var(--blue); background:var(--shadow-tint-blue); border:1px solid #b8e0ff; padding:3px 10px; border-radius:6px;">📍 ${escapeHtml(p.campLocation)}</span>`
       : `<span class="sub">캠프위치 미입력</span>`;
     const noteText = p.note ? escapeHtml(p.note) : '특이사항 없음';
     const nameHtml = `<button type="button" class="att-row-name" data-action="mulsanpro-profile" data-name="${escapeHtml(p.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; display:block;">${escapeHtml(p.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}`;
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(90px,14%) minmax(140px,13%) minmax(100px,10%) minmax(160px,16%) minmax(80px,1fr) minmax(64px,9%) minmax(56px,8%); gap:14px; align-items:center; width:100%; box-sizing:border-box;">
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(90px,14%) minmax(155px,13%) minmax(100px,10%) minmax(160px,16%) minmax(80px,1fr) minmax(64px,9%) minmax(56px,8%); gap:14px; align-items:center; width:100%; box-sizing:border-box;">
       <div style="overflow:hidden;">${nameHtml}</div>
       <div>${phoneHtml}</div>
       <div>${deptBadgeHtml}</div>
