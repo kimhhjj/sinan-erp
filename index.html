@@ -213,6 +213,62 @@
   }
   .notify-done-btn.is-done:hover{ box-shadow: none; }
 
+  /* ===== OTP 패널 (2026-06-29 추가) ===== */
+  .otp-card{
+    padding: 10px 10px 8px;
+    margin-bottom: 4px;
+  }
+  .otp-card-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 8px;
+  }
+  .otp-title{
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--deep-charcoal);
+    letter-spacing: -0.1px;
+  }
+  .otp-sub{
+    display:block;
+    font-size: 11px;
+    color: var(--smoke);
+    margin-top: 2px;
+  }
+  .otp-code-btn{
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--ash);
+    border-radius: var(--radius-btn);
+    background: var(--canvas);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .otp-code-btn:hover{ background: var(--sky); }
+  .otp-code-btn span{
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--deep-charcoal);
+  }
+  .otp-bar{
+    height: 3px;
+    background: var(--ash);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .otp-bar-fill{
+    height: 100%;
+    background: var(--violet);
+    width: 100%;
+    transition: width 1s linear;
+  }
+
   .quick-todo-form{
     padding: 0 10px;
     margin-bottom: 8px;
@@ -1116,6 +1172,19 @@
       <div class="name">신안산업개발<span>ERP</span></div>
     </div>
     <nav>
+      <div class="otp-card" id="otpCard">
+        <div class="otp-card-top">
+          <div>
+            <span class="otp-title">Samsung C&amp;T</span>
+            <span class="otp-sub">jksinan0915#</span>
+          </div>
+        </div>
+        <button type="button" class="otp-code-btn" id="otpCodeBtn" title="클릭하면 복사됩니다">
+          <span id="otpCodeText">------</span>
+        </button>
+        <div class="otp-bar"><div class="otp-bar-fill" id="otpBarFill"></div></div>
+      </div>
+      <div class="nav-divider"></div>
       <p class="nav-label">알림</p>
       <div class="notify-card" id="notifyCard-accident">
         <div class="notify-card-top">
@@ -2398,6 +2467,74 @@ NOTIFY_DEFS.forEach(def => {
 
 setInterval(checkNotifyTime, 15000);
 checkNotifyTime();
+
+/* ===== OTP 패널 (2026-06-29 추가, Samsung C&T 계정 상시표시) =====
+   주의: 아래 비밀키는 브라우저에서 코드를 계산하기 위해 평문으로 들어있습니다.
+   이 사이트는 누구나 접속 가능한 공개 페이지이므로, 사이트 주소를 아는 사람은
+   소스코드를 열어 이 비밀키를 볼 수 있고 동일한 OTP를 생성할 수 있습니다.
+   (사용자 확인 후 의도적으로 이렇게 적용함, 2026-06-29) */
+const OTP_SECRET_B32 = 'BZ5JQEJVKYPMJKV27ODW42HEBMW3ZZ5H';
+const OTP_DIGITS = 6;
+const OTP_PERIOD = 30;
+let otpSecretBytes = null;
+let otpCurrentCode = '';
+
+function otpBase32Decode(str){
+  const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  str = str.toUpperCase().replace(/=+$/,'').replace(/[^A-Z2-7]/g,'');
+  let bits = 0, val = 0;
+  const out = [];
+  for(let i=0;i<str.length;i++){
+    val = (val << 5) | alpha.indexOf(str[i]);
+    bits += 5;
+    if(bits >= 8){ out.push((val >>> (bits-8)) & 0xff); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+
+async function otpComputeCode(secretBytes, timeMs){
+  const counter = Math.floor(timeMs / 1000 / OTP_PERIOD);
+  const counterBytes = new Uint8Array(8);
+  let c = BigInt(counter);
+  for(let i=7;i>=0;i--){ counterBytes[i] = Number(c & 0xffn); c >>= 8n; }
+  const key = await crypto.subtle.importKey('raw', secretBytes, {name:'HMAC', hash:'SHA-1'}, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, counterBytes));
+  const offset = sig[sig.length-1] & 0xf;
+  const bin = ((sig[offset]&0x7f)<<24)|((sig[offset+1]&0xff)<<16)|((sig[offset+2]&0xff)<<8)|(sig[offset+3]&0xff);
+  const mod = Math.pow(10, OTP_DIGITS);
+  return (bin % mod).toString().padStart(OTP_DIGITS, '0');
+}
+
+async function otpUpdateDisplay(){
+  if(!otpSecretBytes) otpSecretBytes = otpBase32Decode(OTP_SECRET_B32);
+  const now = Date.now();
+  const remaining = OTP_PERIOD - (Math.floor(now/1000) % OTP_PERIOD);
+  otpCurrentCode = await otpComputeCode(otpSecretBytes, now);
+  const textEl = document.getElementById('otpCodeText');
+  const barEl = document.getElementById('otpBarFill');
+  if(textEl) textEl.textContent = otpCurrentCode.slice(0,3) + ' ' + otpCurrentCode.slice(3);
+  if(barEl) barEl.style.width = (remaining / OTP_PERIOD * 100) + '%';
+}
+
+const otpCodeBtnEl = document.getElementById('otpCodeBtn');
+if(otpCodeBtnEl){
+  otpCodeBtnEl.addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText(otpCurrentCode);
+    }catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = otpCurrentCode;
+      document.body.appendChild(ta);
+      ta.select();
+      try{ document.execCommand('copy'); }catch(e2){}
+      document.body.removeChild(ta);
+    }
+    showToast('OTP 코드가 복사되었습니다.');
+  });
+}
+
+otpUpdateDisplay();
+setInterval(otpUpdateDisplay, 1000);
 
 /* ===== 할일 알림 (커스텀 N분 후 알림) ===== */
 const TODOS_API_URL = SHEET_API_URL; // 같은 Apps Script, type=todos로 구분
