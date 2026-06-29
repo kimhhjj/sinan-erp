@@ -4088,23 +4088,23 @@ function renderMulsanProList(){
   area.innerHTML = sorted.map(p => {
     const isActive = p.active !== 'false';
     const deptBadgeHtml = p.dept
-      ? `<span class="att-zone-badge" style="background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(p.dept)}</span>`
-      : `<span class="att-zone-badge" style="background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">부서미배정</span>`;
+      ? `<span class="att-zone-badge" style="flex-shrink:0; white-space:nowrap; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(p.dept)}</span>`
+      : `<span class="att-zone-badge" style="flex-shrink:0; white-space:nowrap; background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">부서미배정</span>`;
     const phoneHtml = p.phone
-      ? `<span style="font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(p.phone)}</span>`
+      ? `<span style="flex-shrink:0; white-space:nowrap; display:inline-block; min-width:118px; text-align:center; font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(p.phone)}</span>`
       : '';
     const campHtml = p.campLocation
-      ? `<span style="font-size:12.5px; font-weight:800; color:var(--blue); background:var(--shadow-tint-blue); border:1px solid #b8e0ff; padding:3px 10px; border-radius:6px;">📍 ${escapeHtml(p.campLocation)}</span>`
-      : `<span class="sub">캠프위치 미입력</span>`;
+      ? `<span style="flex-shrink:0; white-space:nowrap; font-size:12.5px; font-weight:800; color:var(--blue); background:var(--shadow-tint-blue); border:1px solid #b8e0ff; padding:3px 10px; border-radius:6px;">📍 ${escapeHtml(p.campLocation)}</span>`
+      : `<span class="sub" style="flex-shrink:0; white-space:nowrap;">캠프위치 미입력</span>`;
     const noteText = p.note ? escapeHtml(p.note) : '특이사항 없음';
-    return `<div class="att-emp-row">
-      <button type="button" class="att-row-name" data-action="mulsanpro-profile" data-name="${escapeHtml(p.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(p.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+    return `<div class="att-emp-row" style="gap:14px; flex-wrap:wrap;">
+      <button type="button" class="att-row-name" data-action="mulsanpro-profile" data-name="${escapeHtml(p.name)}" style="flex:0 0 auto; white-space:nowrap; background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(p.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
       ${phoneHtml}
       ${deptBadgeHtml}
       ${campHtml}
-      <span class="sub">특이사항: ${noteText}</span>
-      <button type="button" class="btn small" data-action="mulsanpro-toggle-active" data-name="${escapeHtml(p.name)}">${isActive ? '비활성화' : '활성화'}</button>
-      <button type="button" class="btn small danger" data-action="mulsanpro-delete" data-name="${escapeHtml(p.name)}">삭제</button>
+      <span class="sub" style="flex:1 1 160px; min-width:120px; overflow-wrap:break-word;">${noteText}</span>
+      <button type="button" class="btn small" data-action="mulsanpro-toggle-active" data-name="${escapeHtml(p.name)}" style="flex-shrink:0;">${isActive ? '비활성화' : '활성화'}</button>
+      <button type="button" class="btn small danger" data-action="mulsanpro-delete" data-name="${escapeHtml(p.name)}" style="flex-shrink:0;">삭제</button>
     </div>`;
   }).join('');
 }
