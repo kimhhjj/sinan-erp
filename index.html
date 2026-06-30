@@ -917,6 +917,12 @@
     margin-bottom: 18px;
     flex-wrap: wrap;
   }
+  .drive-toolbar-left{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
   .drive-breadcrumb{
     font-size: 13px;
     color: var(--smoke);
@@ -933,6 +939,14 @@
   .drive-breadcrumb .crumb:hover{ text-decoration: underline; }
   .drive-breadcrumb .crumb.current{ color: var(--deep-charcoal); cursor: default; }
   .drive-breadcrumb .crumb.current:hover{ text-decoration: none; }
+  .drive-row-path{
+    display:block;
+    font-size: 12px;
+    color: var(--violet);
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .drive-row-path:hover{ text-decoration: underline; }
   .drive-toolbar-actions{
     display:flex;
     gap: 8px;
@@ -1500,7 +1514,10 @@
         <div id="driveApp" style="display:none;">
           <div class="panel">
             <div class="drive-toolbar">
-              <div class="drive-breadcrumb" id="driveBreadcrumb"></div>
+              <div class="drive-toolbar-left">
+                <button class="btn small" id="driveBackBtn" style="display:none;">← 뒤로</button>
+                <div class="drive-breadcrumb" id="driveBreadcrumb"></div>
+              </div>
               <div class="drive-toolbar-actions">
                 <input type="text" id="driveSearchInput" placeholder="파일명 검색">
                 <button class="btn small" id="driveNewFolderBtn">+ 새 폴더</button>
@@ -3307,7 +3324,35 @@ function renderDriveBreadcrumb(){
     const isLast = i === drivePathStack.length - 1;
     return `<span class="crumb ${isLast ? 'current' : ''}" data-idx="${i}">${escapeHtml(p.name)}</span>${isLast ? '' : ' / '}`;
   }).join('');
+  updateDriveBackBtn();
 }
+
+/* 2026-06-30 추가: 검색 결과에서 폴더 깊은 곳에 있는 파일도 위치를 알 수 있도록
+   "뒤로" 버튼을 명시적으로 노출 - 검색 중이면 검색을 닫고, 폴더를 보는 중이면 한 단계 위로 이동 */
+function updateDriveBackBtn(){
+  const btn = document.getElementById('driveBackBtn');
+  if(!btn) return;
+  if(driveSearchMode){
+    btn.style.display = '';
+    btn.textContent = '← 검색 닫기';
+  }else if(drivePathStack.length > 1){
+    btn.style.display = '';
+    btn.textContent = '← 뒤로';
+  }else{
+    btn.style.display = 'none';
+  }
+}
+
+document.getElementById('driveBackBtn').addEventListener('click', () => {
+  if(driveSearchMode){
+    driveSearchMode = false;
+    document.getElementById('driveSearchInput').value = '';
+    loadDriveFolder(drivePathStack[drivePathStack.length - 1].id, false);
+  }else if(drivePathStack.length > 1){
+    drivePathStack.pop();
+    loadDriveFolder(drivePathStack[drivePathStack.length - 1].id, false);
+  }
+});
 
 document.getElementById('driveBreadcrumb').addEventListener('click', (e) => {
   const crumb = e.target.closest('.crumb');
@@ -3378,11 +3423,15 @@ function renderDriveList(){
     const dateLabel = isFolder
       ? (createdLabel ? `생성 ${createdLabel}` : '')
       : `등록 ${createdLabel}${modifiedLabel && modifiedLabel !== createdLabel ? ` · 수정 ${modifiedLabel}` : ''}`;
+    const pathHtml = (driveSearchMode && item._pathLabel)
+      ? `<span class="drive-row-path" data-action="drive-goto-path" data-id="${item.id}" title="이 위치로 이동">📁 ${escapeHtml(item._pathLabel)}</span>`
+      : '';
     return `<div class="drive-row" data-id="${item.id}" data-mime="${item.mimeType}" data-name="${escapeHtml(item.name)}" data-is-folder="${isFolder}">
       <span class="drive-row-icon">${driveFileIcon(item.mimeType)}</span>
       <div class="drive-row-name-wrap">
         <span class="drive-row-name">${escapeHtml(item.name)}</span>
         <span class="drive-row-date">${dateLabel}${dateLabel && sizeLabel ? ' · ' : ''}${sizeLabel}</span>
+        ${pathHtml}
       </div>
       <div class="drive-row-actions">
         ${!isFolder ? `<button class="btn small" data-action="drive-download" data-id="${item.id}" data-name="${escapeHtml(item.name)}">다운로드</button>` : ''}
@@ -3394,6 +3443,17 @@ function renderDriveList(){
 }
 
 document.getElementById('driveListArea').addEventListener('click', async (e) => {
+  const gotoEl = e.target.closest('[data-action="drive-goto-path"]');
+  if(gotoEl){
+    const item = driveCurrentItems.find(x => x.id === gotoEl.dataset.id);
+    if(item && item._parentChain && item._parentChain.length){
+      drivePathStack = item._parentChain.slice();
+      driveSearchMode = false;
+      document.getElementById('driveSearchInput').value = '';
+      loadDriveFolder(drivePathStack[drivePathStack.length - 1].id, false);
+    }
+    return;
+  }
   const actionBtn = e.target.closest('button[data-action]');
   if(actionBtn){
     const id = actionBtn.dataset.id;
@@ -3416,7 +3476,15 @@ document.getElementById('driveListArea').addEventListener('click', async (e) => 
   const name = row.dataset.name;
   const mime = row.dataset.mime;
   if(isFolder){
-    drivePathStack.push({ id, name });
+    if(driveSearchMode){
+      // 검색 결과로 나온 폴더는 현재 위치의 직계 하위가 아닐 수 있으므로,
+      // 미리 역추적해둔 실제 경로(_parentChain)를 기준으로 경로를 새로 구성한다.
+      const item = driveCurrentItems.find(x => x.id === id);
+      const parentChain = (item && item._parentChain && item._parentChain.length) ? item._parentChain.slice() : drivePathStack.slice();
+      drivePathStack = [...parentChain, { id, name }];
+    }else{
+      drivePathStack.push({ id, name });
+    }
     driveSearchMode = false;
     document.getElementById('driveSearchInput').value = '';
     loadDriveFolder(id, false);
@@ -3625,16 +3693,59 @@ document.getElementById('driveSearchInput').addEventListener('input', (e) => {
   }, 400);
 });
 
+/* 2026-06-30 추가: 검색 결과는 어느 하위 폴더에 있든 다 나오기 때문에,
+   각 항목의 실제 위치(경로)를 부모를 거슬러 올라가며 알아내서 보여준다 */
+const driveFolderMetaCache = { [DRIVE_ROOT_FOLDER_ID]: { name: '안전관리', parents: [] } };
+
+async function getDriveFolderMeta(id){
+  if(driveFolderMetaCache[id]) return driveFolderMetaCache[id];
+  try{
+    const res = await driveApiFetch(`/files/${id}?fields=${encodeURIComponent('id,name,parents')}`);
+    const data = await res.json();
+    const meta = { name: data.name || '(이름없음)', parents: data.parents || [] };
+    driveFolderMetaCache[id] = meta;
+    return meta;
+  }catch(e){
+    return { name: '(알수없음)', parents: [] };
+  }
+}
+
+// parentId부터 거슬러 올라가 [{id,name}, ...](루트→해당 폴더 순) 경로를 만든다. 최대 6단계까지만 추적.
+async function resolveDriveParentChain(parentId){
+  const chain = [];
+  let cur = parentId;
+  let depth = 0;
+  while(cur && depth < 6){
+    const meta = await getDriveFolderMeta(cur);
+    chain.unshift({ id: cur, name: meta.name });
+    if(cur === driveRootFolderId) break;
+    cur = (meta.parents && meta.parents[0]) || null;
+    depth++;
+  }
+  return chain;
+}
+
 async function driveSearch(keyword){
   driveSearchMode = true;
+  updateDriveBackBtn();
   document.getElementById('driveListArea').innerHTML = '<div class="loading">검색 중...</div>';
   try{
     const safeKeyword = keyword.replace(/'/g, "\\'");
     const q = encodeURIComponent(`name contains '${safeKeyword}' and trashed = false`);
-    const fields = encodeURIComponent('files(id,name,mimeType,size,modifiedTime)');
+    const fields = encodeURIComponent('files(id,name,mimeType,size,modifiedTime,parents)');
     const res = await driveApiFetch(`/files?q=${q}&fields=${fields}&orderBy=folder,name`);
     const data = await res.json();
     driveCurrentItems = data.files || [];
+    await Promise.all(driveCurrentItems.map(async item => {
+      const parentId = item.parents && item.parents[0];
+      if(parentId){
+        item._parentChain = await resolveDriveParentChain(parentId);
+        item._pathLabel = item._parentChain.map(c => c.name).join(' / ');
+      }else{
+        item._parentChain = [];
+        item._pathLabel = '';
+      }
+    }));
     renderDriveList();
   }catch(err){
     if(err.message !== 'unauthorized'){
