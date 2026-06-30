@@ -2898,6 +2898,9 @@ const GCAL_TOKEN_STORAGE_KEY = 'gcal-access-token-v2';
 
 let gcalAccessToken = null;
 let gcalTokenClient = null;
+let gcalRefreshTimer = null; // 2026-06-30 추가: 만료 전 자동(조용히) 재로그인 타이머
+let gcalSilentMode = false;  // 지금 진행 중인 requestAccessToken 호출이 '조용한 재시도'인지 여부
+let gcalSilentResolve = null; // 조용한 재시도 결과를 기다리는 Promise의 resolve
 let calCurrentYear = new Date().getFullYear();
 let calCurrentMonth = new Date().getMonth(); // 0-indexed
 let calSelectedDateStr = null; // 'YYYY-MM-DD'
@@ -2912,6 +2915,7 @@ function tryRestoreGcalToken(){
     const saved = JSON.parse(localStorage.getItem(GCAL_TOKEN_STORAGE_KEY) || 'null');
     if(saved && saved.token && saved.expiresAt > Date.now()){
       gcalAccessToken = saved.token;
+      scheduleGcalSilentRefresh((saved.expiresAt - Date.now()) / 1000);
       return true;
     }
   }catch(e){}
@@ -2925,6 +2929,27 @@ function saveGcalToken(token, expiresInSec){
       token: token, expiresAt: Date.now() + (expiresInSec * 1000) - 60000
     }));
   }catch(e){}
+  scheduleGcalSilentRefresh(expiresInSec);
+}
+
+/* 2026-06-30 추가: 토큰 만료 전에 화면에 보이지 않게 새 토큰을 미리 받아와서
+   "1시간마다 다시 로그인" 없이 구글 로그인 상태가 계속 유지되도록 함.
+   (브라우저에 구글 계정 로그인이 살아있는 동안만 동작 - 구글 보안 정책상 무제한 영구 로그인은 불가능) */
+function scheduleGcalSilentRefresh(expiresInSec){
+  if(gcalRefreshTimer){ clearTimeout(gcalRefreshTimer); gcalRefreshTimer = null; }
+  const delayMs = Math.max((Number(expiresInSec) || 3500) * 1000 - 5 * 60000, 10000); // 만료 5분 전, 최소 10초 뒤
+  gcalRefreshTimer = setTimeout(() => {
+    requestSilentToken();
+  }, delayMs);
+}
+
+function requestSilentToken(){
+  return new Promise((resolve) => {
+    if(!gcalTokenClient){ resolve(null); return; }
+    gcalSilentResolve = resolve;
+    gcalSilentMode = true;
+    gcalTokenClient.requestAccessToken({ prompt: '' });
+  });
 }
 
 function initGcalLogin(){
@@ -2936,14 +2961,22 @@ function initGcalLogin(){
     client_id: GCAL_CLIENT_ID,
     scope: GCAL_SCOPE,
     callback: (resp) => {
+      const wasSilent = gcalSilentMode;
+      const resolveSilent = gcalSilentResolve;
+      gcalSilentMode = false;
+      gcalSilentResolve = null;
       if(resp.access_token){
         saveGcalToken(resp.access_token, resp.expires_in || 3500);
         showCalendarApp();
         loadMonthEvents();
         showDriveApp();
         loadDriveFolder(driveRootFolderId, true);
+        if(resolveSilent) resolveSilent(resp.access_token);
       }else{
-        showToast('구글 로그인에 실패했습니다.');
+        // 조용한 자동 재시도가 실패한 경우는 토스트 없이 넘어가고(다음 401 시 로그인 화면 노출),
+        // 사용자가 직접 '로그인' 버튼을 눌렀을 때 실패한 경우에만 안내
+        if(!wasSilent) showToast('구글 로그인에 실패했습니다.');
+        if(resolveSilent) resolveSilent(null);
       }
     }
   });
@@ -2978,9 +3011,13 @@ function showCalendarApp(){
   renderCalendarGrid();
 }
 
-function handleGcalUnauthorized(){
+async function handleGcalUnauthorized(){
   gcalAccessToken = null;
   try{ localStorage.removeItem(GCAL_TOKEN_STORAGE_KEY); }catch(e){}
+  // 토큰이 만료/거부된 경우, 화면을 바로 로그아웃 상태로 바꾸기 전에
+  // 구글 로그인 세션이 살아있는지 한 번 조용히 확인(성공하면 화면 전환 없이 그대로 복구됨)
+  const refreshed = await requestSilentToken();
+  if(refreshed) return;
   document.getElementById('calendarLoginGate').style.display = '';
   document.getElementById('calendarApp').style.display = 'none';
   document.getElementById('driveLoginGate').style.display = '';
