@@ -1241,6 +1241,7 @@
       <button class="nav-item active" data-category="home">홈</button>
       <button class="nav-item" data-category="mulsanpro">물산프로정보</button>
       <button class="nav-item" data-category="personnel">인원관리</button>
+      <button class="nav-item" data-category="equipment">장비리스트</button>
       <button class="nav-item" data-category="attendance">출퇴근관리</button>
       <button class="nav-item" data-category="accident">사고근태방</button>
       <button class="nav-item" data-category="prevention">재발방지대책<span class="badge">준비중</span></button>
@@ -1351,6 +1352,41 @@
           </div>
           <input type="text" id="personnelSearchInput" placeholder="이름으로 검색" style="max-width:280px; margin-bottom:14px;">
           <div id="personnelListArea"><div class="loading">불러오는 중...</div></div>
+        </div>
+      </div>
+
+      <!-- ===== 장비리스트 카테고리 ===== -->
+      <div id="category-equipment" style="display:none;">
+        <div class="page-header">
+          <h1>장비리스트</h1>
+        </div>
+
+        <div class="panel" style="margin-bottom:20px;">
+          <p class="block-title">장비 추가</p>
+          <form id="equipmentAddForm" class="event-form" style="flex-wrap:wrap;">
+            <input type="text" id="equipment-add-name" placeholder="장비명 (예: 지게차 1호기)" maxlength="60" required style="flex:1 1 160px;">
+            <input type="text" id="equipment-add-reg" placeholder="장비등록번호" maxlength="40" style="flex:1 1 140px;">
+            <input type="text" id="equipment-add-model" placeholder="모델" maxlength="60" style="flex:1 1 120px;">
+            <input type="text" id="equipment-add-operator" placeholder="장비기사" maxlength="40" style="flex:1 1 100px;">
+            <input type="tel" id="equipment-add-phone" placeholder="휴대폰 번호 (010-0000-0000)" maxlength="20" style="flex:1 1 150px;">
+            <select id="equipment-add-type" required style="flex:1 1 140px;"></select>
+            <button type="submit" class="btn primary" style="flex:0 0 auto;">+ 장비 추가</button>
+          </form>
+        </div>
+
+        <div class="panel" style="margin-bottom:20px;">
+          <p class="block-title">장비 종류 관리</p>
+          <form id="equipmentTypeAddForm" class="event-form">
+            <input type="text" id="equipment-type-add-name" placeholder="장비 종류 (예: 리치스태커)" maxlength="30" required>
+            <button type="submit" class="btn primary">+ 종류 추가</button>
+          </form>
+          <div class="att-zone-tabs" id="equipmentTypeFilterArea" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="panel">
+          <p class="block-title">등록된 장비 (<span class="count" id="equipmentCountLabel">0</span>대)</p>
+          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">위의 장비 종류 탭을 누르면 그 종류만 볼 수 있습니다. "수정" 버튼으로 내용을 고칠 수 있습니다.</p>
+          <div id="equipmentListArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
 
@@ -1951,6 +1987,42 @@
 </div>
 
 
+<div class="modal-overlay" id="equipmentEditOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h3>장비 정보 수정</h3>
+    <input type="hidden" id="equipment-edit-id">
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-name">장비명</label>
+      <input type="text" id="equipment-edit-name" maxlength="60" required>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-reg">장비등록번호</label>
+      <input type="text" id="equipment-edit-reg" maxlength="40">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-model">모델</label>
+      <input type="text" id="equipment-edit-model" maxlength="60">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-operator">장비기사</label>
+      <input type="text" id="equipment-edit-operator" maxlength="40">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-phone">휴대폰 번호</label>
+      <input type="tel" id="equipment-edit-phone" placeholder="010-0000-0000">
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="equipment-edit-type">장비종류</label>
+      <select id="equipment-edit-type"></select>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn" id="cancelEquipmentEdit">취소</button>
+      <button type="button" class="btn primary" id="saveEquipmentEdit">저장</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="attEditRowOverlay">
   <div class="modal" style="max-width:460px;">
     <h3>출퇴근 기록 수정</h3>
@@ -2197,6 +2269,7 @@ function switchCategory(name){
   document.getElementById('category-home').style.display = name === 'home' ? '' : 'none';
   document.getElementById('category-mulsanpro').style.display = name === 'mulsanpro' ? '' : 'none';
   document.getElementById('category-personnel').style.display = name === 'personnel' ? '' : 'none';
+  document.getElementById('category-equipment').style.display = name === 'equipment' ? '' : 'none';
   document.getElementById('category-attendance').style.display = name === 'attendance' ? '' : 'none';
   document.getElementById('category-accident').style.display = name === 'accident' ? '' : 'none';
   document.getElementById('category-todos').style.display = name === 'todos' ? '' : 'none';
@@ -2205,6 +2278,7 @@ function switchCategory(name){
   if(name === 'todos') renderTodoHistory();
   if(name === 'attendance' || name === 'personnel') initAttendanceViewIfNeeded();
   if(name === 'mulsanpro') initMulsanProViewIfNeeded();
+  if(name === 'equipment') initEquipmentViewIfNeeded();
 }
 
 document.querySelectorAll('.nav-item').forEach(t => {
@@ -4511,6 +4585,236 @@ document.getElementById('saveMulsanproProfile').addEventListener('click', async 
   await saveMulsanProList();
 });
 
+/* ===== 장비리스트 카테고리 ===== */
+// 인원관리/물산프로정보와 완전히 별도인 명단. 장비종류(equipmentTypes)는 부서/팀과 동일한 방식으로
+// "기본값 + 실제 지정된 값"만 유지되며, 서버에 별도 저장소가 없어 아무 장비도 배정되지 않은
+// 새 종류는 새로고침 시 사라질 수 있다(물산프로정보의 부서 관리와 동일한 한계).
+const EQUIPMENT_TYPE_DEFAULTS = ['지게차', '전동지게차', '굴착기', '거미크레인', '화물차', '테이블리프트(T/L)'];
+let equipmentList = []; // [{id, name, regNumber, model, operator, phone, type}]
+let equipmentTypes = [...EQUIPMENT_TYPE_DEFAULTS];
+let equipmentTypeFilter = ''; // '' = 전체
+let equipmentInitialized = false;
+
+function initEquipmentViewIfNeeded(){
+  if(equipmentInitialized) return;
+  equipmentInitialized = true;
+  loadEquipmentData();
+}
+
+function genEquipmentId(){
+  return 'eq_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+async function loadEquipmentData(){
+  try{
+    const res = await fetch(SHEET_API_URL + '?type=equipment').then(r => r.json());
+    equipmentList = (res.ok && res.equipment) ? res.equipment : [];
+  }catch(e){
+    equipmentList = [];
+  }
+  equipmentList.forEach(eq => { if(!eq.id) eq.id = genEquipmentId(); });
+  refreshEquipmentTypes();
+  renderEquipmentList();
+}
+
+async function saveEquipmentList(){
+  try{
+    await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'equipment', action: 'replaceAll', equipment: equipmentList })
+    });
+  }catch(e){
+    showToast('장비리스트 저장에 실패했습니다.');
+  }
+}
+
+function refreshEquipmentTypes(){
+  const set = new Set(equipmentTypes);
+  equipmentList.forEach(eq => { if(eq.type) set.add(eq.type); });
+  equipmentTypes = [...set].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+
+function populateEquipmentTypeSelect(sel, selected){
+  if(!sel) return;
+  sel.innerHTML = '<option value="">미지정</option>' + equipmentTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  sel.value = selected || '';
+}
+
+function renderEquipmentTypeFilter(){
+  const area = document.getElementById('equipmentTypeFilterArea');
+  if(!area) return;
+  const counts = {};
+  equipmentList.forEach(eq => { if(eq.type) counts[eq.type] = (counts[eq.type] || 0) + 1; });
+  let html = `<button type="button" class="att-zone-tab equipment-type-tab${equipmentTypeFilter === '' ? ' active' : ''}" data-type="">전체 (${equipmentList.length}대)</button>`;
+  html += equipmentTypes.map(t => `
+    <span style="display:inline-flex; align-items:center; gap:2px;">
+      <button type="button" class="att-zone-tab equipment-type-tab${equipmentTypeFilter === t ? ' active' : ''}" data-type="${escapeHtml(t)}">${escapeHtml(t)} (${counts[t] || 0}대)</button>
+      <button type="button" class="equipment-type-delete" data-type="${escapeHtml(t)}" title="종류 삭제" style="background:none; border:none; color:var(--smoke); cursor:pointer; font-size:13px; padding:2px 6px;">✕</button>
+    </span>`).join('');
+  area.innerHTML = html;
+}
+
+function renderEquipmentList(){
+  const area = document.getElementById('equipmentListArea');
+  if(!area) return;
+  renderEquipmentTypeFilter();
+  populateEquipmentTypeSelect(document.getElementById('equipment-add-type'), '');
+  let sorted = [...equipmentList].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  if(equipmentTypeFilter){
+    sorted = sorted.filter(eq => eq.type === equipmentTypeFilter);
+  }
+  document.getElementById('equipmentCountLabel').textContent = sorted.length;
+  if(sorted.length === 0){
+    area.innerHTML = '<div class="empty">표시할 장비가 없습니다.</div>';
+    return;
+  }
+  area.innerHTML = sorted.map(eq => {
+    const typeBadgeHtml = eq.type
+      ? `<span class="att-zone-badge" style="white-space:nowrap; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(eq.type)}</span>`
+      : `<span class="att-zone-badge" style="white-space:nowrap; background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">종류미지정</span>`;
+    const phoneHtml = eq.phone
+      ? `<span style="white-space:nowrap; display:inline-block; text-align:center; font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(eq.phone.replace(/-/g, ' - '))}</span>`
+      : `<span class="sub">번호 미입력</span>`;
+    const regHtml = eq.regNumber ? escapeHtml(eq.regNumber) : `<span class="sub">등록번호 미입력</span>`;
+    const modelHtml = eq.model ? escapeHtml(eq.model) : `<span class="sub">모델 미입력</span>`;
+    const operatorHtml = eq.operator ? escapeHtml(eq.operator) : `<span class="sub">기사 미입력</span>`;
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(100px,16%) minmax(80px,11%) minmax(90px,12%) minmax(70px,1fr) minmax(90px,12%) minmax(150px,14%) minmax(56px,8%) minmax(56px,8%); gap:12px; align-items:center; width:100%; box-sizing:border-box;">
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(eq.name)}</div>
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${regHtml}</div>
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${modelHtml}</div>
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${operatorHtml}</div>
+      <div>${typeBadgeHtml}</div>
+      <div>${phoneHtml}</div>
+      <button type="button" class="btn small" data-action="equipment-edit" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">수정</button>
+      <button type="button" class="btn small danger" data-action="equipment-delete" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('equipmentAddForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nameInput = document.getElementById('equipment-add-name');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  const regNumber = document.getElementById('equipment-add-reg').value.trim();
+  const model = document.getElementById('equipment-add-model').value.trim();
+  const operator = document.getElementById('equipment-add-operator').value.trim();
+  const phone = document.getElementById('equipment-add-phone').value.trim();
+  const type = document.getElementById('equipment-add-type').value;
+  equipmentList.push({ id: genEquipmentId(), name, regNumber, model, operator, phone, type });
+  nameInput.value = '';
+  document.getElementById('equipment-add-reg').value = '';
+  document.getElementById('equipment-add-model').value = '';
+  document.getElementById('equipment-add-operator').value = '';
+  document.getElementById('equipment-add-phone').value = '';
+  refreshEquipmentTypes();
+  renderEquipmentList();
+  showToast(`"${name}" 장비를 추가했습니다.`);
+  await saveEquipmentList();
+});
+
+document.getElementById('equipmentTypeAddForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('equipment-type-add-name');
+  const name = input.value.trim();
+  if(!name) return;
+  if(equipmentTypes.includes(name)){
+    showToast('이미 있는 장비 종류입니다.');
+    return;
+  }
+  equipmentTypes.push(name);
+  equipmentTypes.sort((a, b) => a.localeCompare(b, 'ko'));
+  input.value = '';
+  renderEquipmentList();
+  showToast(`"${name}" 장비 종류를 추가했습니다.`);
+});
+
+document.getElementById('equipmentTypeFilterArea').addEventListener('click', async (e) => {
+  const delBtn = e.target.closest('.equipment-type-delete');
+  if(delBtn){
+    const type = delBtn.dataset.type;
+    const memberCount = equipmentList.filter(eq => eq.type === type).length;
+    const msg = memberCount > 0
+      ? `"${type}" 종류를 삭제할까요? 이 종류로 등록된 장비 ${memberCount}대는 종류미지정 상태가 됩니다.`
+      : `"${type}" 종류를 삭제할까요?`;
+    if(!confirm(msg)) return;
+    equipmentList.forEach(eq => { if(eq.type === type) eq.type = ''; });
+    equipmentTypes = equipmentTypes.filter(t => t !== type);
+    if(equipmentTypeFilter === type) equipmentTypeFilter = '';
+    renderEquipmentList();
+    showToast(`"${type}" 종류를 삭제했습니다.`);
+    await saveEquipmentList();
+    return;
+  }
+  const tabBtn = e.target.closest('.equipment-type-tab');
+  if(tabBtn){
+    equipmentTypeFilter = tabBtn.dataset.type;
+    renderEquipmentList();
+  }
+});
+
+document.getElementById('equipmentListArea').addEventListener('click', async (e) => {
+  const editBtn = e.target.closest('button[data-action="equipment-edit"]');
+  if(editBtn){
+    openEquipmentEditModal(editBtn.dataset.id);
+    return;
+  }
+  const deleteBtn = e.target.closest('button[data-action="equipment-delete"]');
+  if(deleteBtn){
+    const id = deleteBtn.dataset.id;
+    const eq = equipmentList.find(x => x.id === id);
+    if(!eq) return;
+    if(!confirm(`"${eq.name}" 장비를 삭제할까요?`)) return;
+    equipmentList = equipmentList.filter(x => x.id !== id);
+    renderEquipmentList();
+    showToast(`"${eq.name}" 장비를 삭제했습니다.`);
+    await saveEquipmentList();
+  }
+});
+
+/* ---- 장비 수정 모달 ---- */
+function openEquipmentEditModal(id){
+  const eq = equipmentList.find(x => x.id === id);
+  if(!eq) return;
+  document.getElementById('equipment-edit-id').value = eq.id;
+  document.getElementById('equipment-edit-name').value = eq.name || '';
+  document.getElementById('equipment-edit-reg').value = eq.regNumber || '';
+  document.getElementById('equipment-edit-model').value = eq.model || '';
+  document.getElementById('equipment-edit-operator').value = eq.operator || '';
+  document.getElementById('equipment-edit-phone').value = eq.phone || '';
+  populateEquipmentTypeSelect(document.getElementById('equipment-edit-type'), eq.type || '');
+  document.getElementById('equipmentEditOverlay').classList.add('show');
+}
+function closeEquipmentEditModal(){
+  document.getElementById('equipmentEditOverlay').classList.remove('show');
+}
+document.getElementById('cancelEquipmentEdit').addEventListener('click', closeEquipmentEditModal);
+document.getElementById('equipmentEditOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'equipmentEditOverlay') closeEquipmentEditModal();
+});
+document.getElementById('saveEquipmentEdit').addEventListener('click', async () => {
+  const id = document.getElementById('equipment-edit-id').value;
+  const eq = equipmentList.find(x => x.id === id);
+  if(!eq) return;
+  const name = document.getElementById('equipment-edit-name').value.trim();
+  if(!name){
+    showToast('장비명을 입력해주세요.');
+    return;
+  }
+  eq.name = name;
+  eq.regNumber = document.getElementById('equipment-edit-reg').value.trim();
+  eq.model = document.getElementById('equipment-edit-model').value.trim();
+  eq.operator = document.getElementById('equipment-edit-operator').value.trim();
+  eq.phone = document.getElementById('equipment-edit-phone').value.trim();
+  eq.type = document.getElementById('equipment-edit-type').value;
+  closeEquipmentEditModal();
+  refreshEquipmentTypes();
+  renderEquipmentList();
+  showToast(`"${eq.name}" 정보를 수정했습니다.`);
+  await saveEquipmentList();
+});
+
 /* ---- 카톡 txt 파싱 ---- */
 const ATT_DATE_LINE_RE = /^-+\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
 const ATT_MSG_START_RE = /^\[([^\]]+)\]\s*\[(오전|오후)?\s*([\d:]+)\]\s*(.*)$/;
@@ -4524,6 +4828,14 @@ const ATT_AMBIGUOUS_KEYWORDS = ['조퇴', '???', '검토', 'ino오류', '오류'
 
 // 단체 명단 한 줄에서 이름/태그를 뽑아낼 때 인정하는 태그 단어들
 const ATT_ROSTER_TAG_WORDS = ['퇴사', '휴무', '연장', '주간', '야간', '관리'];
+
+// 2026-06-30 추가: 번호 없이 이름만 한 줄씩 적은 명단(예: 김시일팀)에서, 소제목으로 끼어드는
+// "양중/성상/유류" 같은 단어는 사람 이름이 아니므로 명단 추출 시 건너뛴다.
+const ATT_ROSTER_SECTION_HEADERS = ['양중', '성상', '상부양중', '하부양중', '야적장', '유류', '야간조', '주간조'];
+
+// 2026-06-30 추가: "이름1 이름2 ... 출근" 식의 대리보고 인식 시, 차량/장비를 가리키는 단어가
+// 섞이면 사람 이름으로 오인식하지 않도록 제외한다 (예: "서명보 화물차 출근" → 화물차는 사람이 아님).
+const ATT_NON_NAME_WORDS = ['화물차', '지게차', '크레인', '굴착기', '트럭', '버스', '승합차', '오토바이'];
 
 // "오전 7:50" / "오후 4:10" 같은 카톡 시각 표기를 24시간제 "07:50" / "16:10"으로 변환
 function toHHMM(ampm, hmRaw){
@@ -4621,6 +4933,53 @@ function extractRosterEntries(body){
     }
     if(name.length < 2 || name.length > 4) return;
 
+    const tag = ATT_ROSTER_TAG_WORDS.find(t => remainder.includes(t)) || '';
+    entries.push({ name, tag });
+  });
+
+  // 번호 매긴 줄이 거의 없으면(번호 자체를 안 쓴 명단일 수 있음), 번호 없이 이름만 한 줄씩
+  // 적은 명단인지 한 번 더 시도한다. "총원/출근/휴무" 집계가 같이 있을 때만 시도해서
+  // 그냥 평범한 메시지를 명단으로 잘못 인식하는 일을 막는다.
+  if(entries.length < 3){
+    const summary = parseRosterSummary(body);
+    if(summary.total != null && summary.total >= 3){
+      const bareEntries = extractBareNameLines(body);
+      if(bareEntries.length >= 3) return bareEntries;
+    }
+  }
+  return entries;
+}
+
+// 2026-06-30 추가: "총원:14명/출근:0명/휴무:0명" 같은 집계 줄 뒤에 번호 없이 이름만
+// 한 줄씩(또는 "양중/성상/유류" 같은 소제목으로 묶어서) 적은 명단을 인식한다.
+// 집계 줄들 중 "마지막" 줄 다음부터를 명단 후보로 보는 이유: 실제 현장 보고는
+// "팀이름 → 총원/출근/휴무 집계 → 이름나열" 순서가 압도적으로 많아서다.
+function extractBareNameLines(body){
+  const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+  const summaryLineRe = /^(총원|총인원|출근|퇴근|주간퇴근|연장퇴근|휴무자|휴무|조퇴|퇴사)[:：]?\d+명?$/;
+  let lastSummaryIdx = -1;
+  lines.forEach((line, idx) => {
+    if(summaryLineRe.test(line.replace(/\s+/g, ''))) lastSummaryIdx = idx;
+  });
+  if(lastSummaryIdx === -1) return [];
+
+  const entries = [];
+  lines.slice(lastSummaryIdx + 1).forEach(line => {
+    if(ATT_ROSTER_SECTION_HEADERS.includes(line)) return; // 소제목 줄은 이름이 아니므로 제외
+    let name, remainder;
+    const spacedNameMatch = line.match(/^([가-힣](?:\s+[가-힣]){1,3})\s*$/);
+    if(spacedNameMatch){
+      name = spacedNameMatch[1].replace(/\s+/g, '');
+      remainder = '';
+    }else{
+      // 이름 뒤에 직책/태그가 붙어도 되지만, 뒤에 다른 일반 문장이 더 붙으면(이름이 아닐 가능성이
+      // 높음) 제외한다 - 허용 문자: 공백, 하이픈/언더스코어, 괄호, 콜론, 한글(태그 단어)뿐.
+      const plainNameMatch = line.match(/^([가-힣]{2,4})([\s\-_().:가-힣]*)$/);
+      if(!plainNameMatch) return;
+      name = plainNameMatch[1];
+      remainder = plainNameMatch[2] || '';
+    }
+    if(name.length < 2 || name.length > 4) return;
     const tag = ATT_ROSTER_TAG_WORDS.find(t => remainder.includes(t)) || '';
     entries.push({ name, tag });
   });
@@ -4727,9 +5086,10 @@ function parseKakaoAttendance(text){
     const STATUS_EXACT_WORDS = [...ATT_CHECKIN_KEYWORDS, ...ATT_CHECKOUT_KEYWORDS, ...ATT_LEAVE_KEYWORDS];
     const tokens = body.trim().split(/[\s,]+/).filter(Boolean).map(t => t.replace(/[!.?~…]+$/g, ''));
     const lastToken = tokens[tokens.length - 1];
+    // "서명보 화물차 출근"처럼 차량/장비 단어가 끼면 그 단어까지 사람으로 잘못 세지 않도록 제외
     const isPureNameListMsg = tokens.length >= 2 &&
       STATUS_EXACT_WORDS.includes(lastToken) &&
-      tokens.slice(0, -1).every(t => /^[가-힣]{2,4}$/.test(t));
+      tokens.slice(0, -1).every(t => /^[가-힣]{2,4}$/.test(t) && !ATT_NON_NAME_WORDS.includes(t));
 
     // 동명이인 등으로 이름만으로 구분이 안 되는 발신자는 "발신자 매핑 관리"에서 특정 직원으로 고정해둘 수 있다.
     // 이 매핑이 있으면 본문 내용(이름 나열 여부)과 무관하게 항상 그 사람으로 확정 처리한다.
