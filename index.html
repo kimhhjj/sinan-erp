@@ -668,6 +668,7 @@
   #attNameSearch{ width: 220px; }
   .att-zone-tabs{
     display:flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 14px;
     border-top: 1px solid var(--ash);
@@ -683,6 +684,8 @@
     font-weight: 700;
     cursor: pointer;
     font-family: var(--font-display);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .att-zone-tab.active{ background: var(--onyx); color: #fff; border-color: var(--onyx); }
   .att-zone-tab:not(.active):hover{ background: var(--sky); }
@@ -1400,6 +1403,7 @@
         <div class="panel" style="margin-bottom:20px;">
           <p class="block-title">품목 추가 (안전용품)</p>
           <form id="inventoryItemAddForm" class="event-form" style="flex-wrap:wrap;">
+            <input type="text" id="inventory-item-add-icon" placeholder="아이콘" maxlength="4" style="flex:0 0 64px; text-align:center;">
             <input type="text" id="inventory-item-add-name" placeholder="품목명 (예: 안전모)" maxlength="60" required style="flex:1 1 160px;">
             <input type="text" id="inventory-item-add-unit" placeholder="단위 (예: 개, 박스)" maxlength="20" style="flex:1 1 100px;">
             <input type="number" id="inventory-item-add-safety" placeholder="안전재고 수량" min="0" style="flex:1 1 120px;">
@@ -2073,6 +2077,10 @@
   <div class="modal" style="max-width:420px;">
     <h3>품목 수정</h3>
     <input type="hidden" id="inventory-item-edit-id">
+    <div class="field" style="margin-bottom:12px;">
+      <label for="inventory-item-edit-icon">아이콘 (선택)</label>
+      <input type="text" id="inventory-item-edit-icon" maxlength="4" placeholder="예: 🥽">
+    </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="inventory-item-edit-name">품목명</label>
       <input type="text" id="inventory-item-edit-name" maxlength="60" required>
@@ -5001,10 +5009,14 @@ function getItemStock(itemId){
   return stock;
 }
 
+function inventoryItemLabel(it){
+  return (it.icon ? escapeHtml(it.icon) + ' ' : '') + escapeHtml(it.name);
+}
+
 function populateInventoryItemSelect(sel, selected){
   if(!sel) return;
   const sorted = [...inventoryItems].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  sel.innerHTML = sorted.map(it => `<option value="${escapeHtml(it.id)}">${escapeHtml(it.name)}</option>`).join('');
+  sel.innerHTML = sorted.map(it => `<option value="${escapeHtml(it.id)}">${inventoryItemLabel(it)}</option>`).join('');
   if(selected) sel.value = selected;
 }
 
@@ -5015,6 +5027,8 @@ function renderInventoryAll(){
   populateInventoryItemSelect(document.getElementById('inventory-tx-add-item'), document.getElementById('inventory-tx-add-item').value);
 }
 
+const INVENTORY_ITEM_ROW_GRID = 'minmax(120px,24%) minmax(56px,8%) minmax(64px,12%) minmax(70px,13%) minmax(56px,10%) minmax(56px,10%) minmax(56px,10%)';
+
 function renderInventoryItemList(){
   const area = document.getElementById('inventoryItemListArea');
   if(!area) return;
@@ -5024,7 +5038,16 @@ function renderInventoryItemList(){
     area.innerHTML = '<div class="empty">등록된 품목이 없습니다.</div>';
     return;
   }
-  area.innerHTML = sorted.map(it => {
+  const headerHtml = `<div class="att-emp-row" style="display:grid; grid-template-columns:${INVENTORY_ITEM_ROW_GRID}; gap:12px; align-items:center; width:100%; box-sizing:border-box; font-size:11px; color:var(--smoke); text-transform:uppercase; font-weight:700; letter-spacing:0.02em; border-bottom:2px solid var(--ash); padding-bottom:8px;">
+    <div>품목명</div>
+    <div>단위</div>
+    <div>현재고</div>
+    <div>안전재고</div>
+    <div>상태</div>
+    <div></div>
+    <div></div>
+  </div>`;
+  const rowsHtml = sorted.map(it => {
     const stock = getItemStock(it.id);
     const safetyRaw = it.safetyStock;
     const safety = (safetyRaw !== undefined && safetyRaw !== '') ? parseFloat(safetyRaw) : null;
@@ -5032,30 +5055,42 @@ function renderInventoryItemList(){
     const stockBadgeHtml = isLow
       ? `<span class="att-zone-badge" style="white-space:nowrap; background:#ffe4e0; color:#c23a2e; border:1px solid #f3b3aa; font-size:12px; padding:3px 10px; border-radius:6px;">부족</span>`
       : `<span class="att-zone-badge" style="white-space:nowrap; background:var(--shadow-tint-blue); color:var(--blue); border:1px solid #b8e0ff; font-size:12px; padding:3px 10px; border-radius:6px;">정상</span>`;
-    const unitText = it.unit ? escapeHtml(it.unit) : '';
-    const safetyHtml = (safety !== null && !isNaN(safety)) ? `${safety}${unitText}` : `<span class="sub">미설정</span>`;
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(100px,22%) minmax(80px,16%) minmax(80px,16%) minmax(56px,12%) minmax(56px,10%) minmax(56px,10%); gap:12px; align-items:center; width:100%; box-sizing:border-box;">
-      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(it.name)}</div>
-      <div style="font-weight:800; color:var(--violet);">${stock}${unitText}</div>
+    const unitHtml = it.unit ? escapeHtml(it.unit) : `<span class="sub">-</span>`;
+    const safetyHtml = (safety !== null && !isNaN(safety)) ? `${safety}` : `<span class="sub">미설정</span>`;
+    const iconHtml = it.icon ? `<span style="margin-right:4px;">${escapeHtml(it.icon)}</span>` : '';
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:${INVENTORY_ITEM_ROW_GRID}; gap:12px; align-items:center; width:100%; box-sizing:border-box;">
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${iconHtml}${escapeHtml(it.name)}</div>
+      <div>${unitHtml}</div>
+      <div style="font-weight:800; color:var(--violet);">${stock}</div>
       <div>${safetyHtml}</div>
       <div>${stockBadgeHtml}</div>
       <button type="button" class="btn small" data-action="inventory-item-edit" data-id="${escapeHtml(it.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">수정</button>
       <button type="button" class="btn small danger" data-action="inventory-item-delete" data-id="${escapeHtml(it.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
+  area.innerHTML = headerHtml + rowsHtml;
 }
 
 function renderInventoryTxFilter(){
   const area = document.getElementById('inventoryTxFilterArea');
   if(!area) return;
+  // 품목 필터는 개수가 계속 늘어날 수 있어(안전용품 품목 추가 시) 탭 대신 드롭다운으로 표시 —
+  // 탭으로 하면 품목이 많아질 때마다 한 줄에 다 욱여넣으려다 글자가 세로로 눌리는 문제가 있었음.
+  // 입출고 구분(전체/입고만/출고만)은 항상 3개 고정이라 계속 탭으로 유지.
   const sortedItems = [...inventoryItems].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  let html = `<button type="button" class="att-zone-tab inventory-tx-item-tab${inventoryTxItemFilter === '' ? ' active' : ''}" data-item="">전체 품목</button>`;
-  html += sortedItems.map(it => `<button type="button" class="att-zone-tab inventory-tx-item-tab${inventoryTxItemFilter === it.id ? ' active' : ''}" data-item="${escapeHtml(it.id)}">${escapeHtml(it.name)}</button>`).join('');
-  html += `<span style="display:inline-block; width:1px; height:20px; background:var(--ash); margin:0 4px; vertical-align:middle;"></span>`;
-  html += `<button type="button" class="att-zone-tab inventory-tx-type-tab${inventoryTxTypeFilter === '' ? ' active' : ''}" data-type="">입출고 전체</button>`;
-  html += `<button type="button" class="att-zone-tab inventory-tx-type-tab${inventoryTxTypeFilter === 'in' ? ' active' : ''}" data-type="in">입고만</button>`;
-  html += `<button type="button" class="att-zone-tab inventory-tx-type-tab${inventoryTxTypeFilter === 'out' ? ' active' : ''}" data-type="out">출고만</button>`;
-  area.innerHTML = html;
+  const itemOptionsHtml = '<option value="">전체 품목</option>' + sortedItems.map(it => `<option value="${escapeHtml(it.id)}">${inventoryItemLabel(it)}</option>`).join('');
+  area.style.borderTop = 'none';
+  area.style.paddingTop = '0';
+  area.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; border-top:1px solid var(--ash); padding-top:14px;">
+      <select id="inventoryTxItemFilterSelect" style="flex:0 1 220px; min-width:160px;">${itemOptionsHtml}</select>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <button type="button" class="att-zone-tab inventory-tx-type-tab${inventoryTxTypeFilter === '' ? ' active' : ''}" data-type="">입출고 전체</button>
+        <button type="button" class="att-zone-tab inventory-tx-type-tab${inventoryTxTypeFilter === 'in' ? ' active' : ''}" data-type="in">입고만</button>
+        <button type="button" class="att-zone-tab inventory-tx-type-tab${inventoryTxTypeFilter === 'out' ? ' active' : ''}" data-type="out">출고만</button>
+      </div>
+    </div>`;
+  document.getElementById('inventoryTxItemFilterSelect').value = inventoryTxItemFilter;
 }
 
 function renderInventoryTxList(){
@@ -5094,11 +5129,13 @@ document.getElementById('inventoryItemAddForm').addEventListener('submit', async
   const nameInput = document.getElementById('inventory-item-add-name');
   const name = nameInput.value.trim();
   if(!name) return;
+  const icon = document.getElementById('inventory-item-add-icon').value.trim();
   const unit = document.getElementById('inventory-item-add-unit').value.trim();
   const safetyRaw = document.getElementById('inventory-item-add-safety').value;
   const safetyStock = safetyRaw === '' ? '' : safetyRaw;
-  inventoryItems.push({ id: genInventoryItemId(), name, unit, safetyStock });
+  inventoryItems.push({ id: genInventoryItemId(), name, icon, unit, safetyStock });
   nameInput.value = '';
+  document.getElementById('inventory-item-add-icon').value = '';
   document.getElementById('inventory-item-add-unit').value = '';
   document.getElementById('inventory-item-add-safety').value = '';
   renderInventoryAll();
@@ -5182,17 +5219,16 @@ document.getElementById('inventoryItemListArea').addEventListener('click', async
 });
 
 document.getElementById('inventoryTxFilterArea').addEventListener('click', (e) => {
-  const itemTab = e.target.closest('.inventory-tx-item-tab');
-  if(itemTab){
-    inventoryTxItemFilter = itemTab.dataset.item;
-    renderInventoryTxFilter();
-    renderInventoryTxList();
-    return;
-  }
   const typeTab = e.target.closest('.inventory-tx-type-tab');
   if(typeTab){
     inventoryTxTypeFilter = typeTab.dataset.type;
     renderInventoryTxFilter();
+    renderInventoryTxList();
+  }
+});
+document.getElementById('inventoryTxFilterArea').addEventListener('change', (e) => {
+  if(e.target.id === 'inventoryTxItemFilterSelect'){
+    inventoryTxItemFilter = e.target.value;
     renderInventoryTxList();
   }
 });
@@ -5221,6 +5257,7 @@ function openInventoryItemEditModal(id){
   const item = inventoryItems.find(x => x.id === id);
   if(!item) return;
   document.getElementById('inventory-item-edit-id').value = item.id;
+  document.getElementById('inventory-item-edit-icon').value = item.icon || '';
   document.getElementById('inventory-item-edit-name').value = item.name || '';
   document.getElementById('inventory-item-edit-unit').value = item.unit || '';
   document.getElementById('inventory-item-edit-safety').value = (item.safetyStock !== undefined && item.safetyStock !== null) ? item.safetyStock : '';
@@ -5244,6 +5281,7 @@ document.getElementById('saveInventoryItemEdit').addEventListener('click', async
   }
   const oldName = item.name;
   item.name = name;
+  item.icon = document.getElementById('inventory-item-edit-icon').value.trim();
   item.unit = document.getElementById('inventory-item-edit-unit').value.trim();
   const safetyRaw = document.getElementById('inventory-item-edit-safety').value;
   item.safetyStock = safetyRaw === '' ? '' : safetyRaw;
