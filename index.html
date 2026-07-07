@@ -1374,6 +1374,11 @@
             <input type="text" id="equipment-add-operator" placeholder="장비기사" maxlength="40" style="flex:1 1 100px;">
             <input type="tel" id="equipment-add-phone" placeholder="휴대폰 번호 (010-0000-0000)" maxlength="20" style="flex:1 1 150px;">
             <select id="equipment-add-type" required style="flex:1 1 140px;"></select>
+            <select id="equipment-add-zone" style="flex:1 1 110px;">
+              <option value="">라인 미지정</option>
+              <option value="A4">A4</option>
+              <option value="A5">A5</option>
+            </select>
             <button type="submit" class="btn primary" style="flex:0 0 auto;">+ 장비 추가</button>
           </form>
         </div>
@@ -1389,7 +1394,8 @@
 
         <div class="panel">
           <p class="block-title">등록된 장비 (<span class="count" id="equipmentCountLabel">0</span>대)</p>
-          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">위의 장비 종류 탭을 누르면 그 종류만 볼 수 있습니다. "수정" 버튼으로 내용을 고칠 수 있습니다.</p>
+          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">위의 장비 종류 탭이나 아래 라인 탭을 누르면 해당하는 장비만 볼 수 있습니다. "수정" 버튼으로 내용을 고칠 수 있습니다.</p>
+          <div class="att-zone-tabs" id="equipmentZoneFilterArea" style="margin-top:0; margin-bottom:14px; border-top:none; padding-top:0;"></div>
           <div id="equipmentListArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
@@ -2061,9 +2067,17 @@
       <label for="equipment-edit-phone">휴대폰 번호</label>
       <input type="tel" id="equipment-edit-phone" placeholder="010-0000-0000">
     </div>
-    <div class="field" style="margin-bottom:18px;">
+    <div class="field" style="margin-bottom:12px;">
       <label for="equipment-edit-type">장비종류</label>
       <select id="equipment-edit-type"></select>
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="equipment-edit-zone">라인 (A4/A5)</label>
+      <select id="equipment-edit-zone">
+        <option value="">라인 미지정</option>
+        <option value="A4">A4</option>
+        <option value="A5">A5</option>
+      </select>
     </div>
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelEquipmentEdit">취소</button>
@@ -4712,6 +4726,7 @@ const EQUIPMENT_TYPE_DEFAULTS = ['지게차', '전동지게차', '굴착기', '�
 let equipmentList = []; // [{id, name, regNumber, model, operator, phone, type}]
 let equipmentTypes = [...EQUIPMENT_TYPE_DEFAULTS];
 let equipmentTypeFilter = ''; // '' = 전체
+let equipmentZoneFilter = ''; // '' = 전체, 'A4', 'A5'
 let equipmentInitialized = false;
 
 function initEquipmentViewIfNeeded(){
@@ -4774,14 +4789,30 @@ function renderEquipmentTypeFilter(){
   area.innerHTML = html;
 }
 
+function renderEquipmentZoneFilter(){
+  const area = document.getElementById('equipmentZoneFilterArea');
+  if(!area) return;
+  const counts = { A4: 0, A5: 0 };
+  equipmentList.forEach(eq => { if(eq.zone === 'A4' || eq.zone === 'A5') counts[eq.zone]++; });
+  const html = `
+    <button type="button" class="att-zone-tab equipment-zone-tab${equipmentZoneFilter === '' ? ' active' : ''}" data-zone="">전체 라인</button>
+    <button type="button" class="att-zone-tab equipment-zone-tab${equipmentZoneFilter === 'A4' ? ' active' : ''}" data-zone="A4">A4 (${counts.A4}대)</button>
+    <button type="button" class="att-zone-tab equipment-zone-tab${equipmentZoneFilter === 'A5' ? ' active' : ''}" data-zone="A5">A5 (${counts.A5}대)</button>`;
+  area.innerHTML = html;
+}
+
 function renderEquipmentList(){
   const area = document.getElementById('equipmentListArea');
   if(!area) return;
   renderEquipmentTypeFilter();
+  renderEquipmentZoneFilter();
   populateEquipmentTypeSelect(document.getElementById('equipment-add-type'), '');
   let sorted = [...equipmentList].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   if(equipmentTypeFilter){
     sorted = sorted.filter(eq => eq.type === equipmentTypeFilter);
+  }
+  if(equipmentZoneFilter){
+    sorted = sorted.filter(eq => eq.zone === equipmentZoneFilter);
   }
   document.getElementById('equipmentCountLabel').textContent = sorted.length;
   if(sorted.length === 0){
@@ -4798,12 +4829,16 @@ function renderEquipmentList(){
     const regHtml = eq.regNumber ? escapeHtml(eq.regNumber) : `<span class="sub">등록번호 미입력</span>`;
     const modelHtml = eq.model ? escapeHtml(eq.model) : `<span class="sub">모델 미입력</span>`;
     const operatorHtml = eq.operator ? escapeHtml(eq.operator) : `<span class="sub">기사 미입력</span>`;
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(100px,16%) minmax(80px,11%) minmax(90px,12%) minmax(70px,1fr) minmax(90px,12%) minmax(150px,14%) minmax(56px,8%) minmax(56px,8%); gap:12px; align-items:center; width:100%; box-sizing:border-box;">
+    const zoneBadgeHtml = (eq.zone === 'A4' || eq.zone === 'A5')
+      ? `<span class="att-zone-badge zone-${eq.zone.toLowerCase()}">${eq.zone}</span>`
+      : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">라인미지정</span>`;
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(100px,15%) minmax(80px,10%) minmax(90px,11%) minmax(70px,1fr) minmax(90px,11%) minmax(56px,8%) minmax(150px,13%) minmax(56px,8%) minmax(56px,8%); gap:10px; align-items:center; width:100%; box-sizing:border-box;">
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(eq.name)}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${regHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${modelHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${operatorHtml}</div>
       <div>${typeBadgeHtml}</div>
+      <div>${zoneBadgeHtml}</div>
       <div>${phoneHtml}</div>
       <button type="button" class="btn small" data-action="equipment-edit" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">수정</button>
       <button type="button" class="btn small danger" data-action="equipment-delete" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
@@ -4821,7 +4856,8 @@ document.getElementById('equipmentAddForm').addEventListener('submit', async (e)
   const operator = document.getElementById('equipment-add-operator').value.trim();
   const phone = document.getElementById('equipment-add-phone').value.trim();
   const type = document.getElementById('equipment-add-type').value;
-  equipmentList.push({ id: genEquipmentId(), name, regNumber, model, operator, phone, type });
+  const zone = document.getElementById('equipment-add-zone').value;
+  equipmentList.push({ id: genEquipmentId(), name, regNumber, model, operator, phone, type, zone });
   nameInput.value = '';
   document.getElementById('equipment-add-reg').value = '';
   document.getElementById('equipment-add-model').value = '';
@@ -4873,6 +4909,14 @@ document.getElementById('equipmentTypeFilterArea').addEventListener('click', asy
   }
 });
 
+document.getElementById('equipmentZoneFilterArea').addEventListener('click', (e) => {
+  const zoneTab = e.target.closest('.equipment-zone-tab');
+  if(zoneTab){
+    equipmentZoneFilter = zoneTab.dataset.zone;
+    renderEquipmentList();
+  }
+});
+
 document.getElementById('equipmentListArea').addEventListener('click', async (e) => {
   const editBtn = e.target.closest('button[data-action="equipment-edit"]');
   if(editBtn){
@@ -4903,6 +4947,7 @@ function openEquipmentEditModal(id){
   document.getElementById('equipment-edit-operator').value = eq.operator || '';
   document.getElementById('equipment-edit-phone').value = eq.phone || '';
   populateEquipmentTypeSelect(document.getElementById('equipment-edit-type'), eq.type || '');
+  document.getElementById('equipment-edit-zone').value = eq.zone || '';
   document.getElementById('equipmentEditOverlay').classList.add('show');
 }
 function closeEquipmentEditModal(){
@@ -4927,6 +4972,7 @@ document.getElementById('saveEquipmentEdit').addEventListener('click', async () 
   eq.operator = document.getElementById('equipment-edit-operator').value.trim();
   eq.phone = document.getElementById('equipment-edit-phone').value.trim();
   eq.type = document.getElementById('equipment-edit-type').value;
+  eq.zone = document.getElementById('equipment-edit-zone').value;
   closeEquipmentEditModal();
   refreshEquipmentTypes();
   renderEquipmentList();
