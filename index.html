@@ -4801,6 +4801,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
+const EQUIPMENT_ROW_GRID = 'minmax(100px,13%) minmax(80px,9%) minmax(90px,10%) minmax(70px,1fr) minmax(130px,16%) minmax(64px,7%) minmax(150px,13%) minmax(56px,8%) minmax(56px,8%)';
+
 function renderEquipmentList(){
   const area = document.getElementById('equipmentListArea');
   if(!area) return;
@@ -4819,9 +4821,20 @@ function renderEquipmentList(){
     area.innerHTML = '<div class="empty">표시할 장비가 없습니다.</div>';
     return;
   }
-  area.innerHTML = sorted.map(eq => {
+  const headerHtml = `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box; font-size:11px; color:var(--smoke); text-transform:uppercase; font-weight:700; letter-spacing:0.02em; border-bottom:2px solid var(--ash); padding-bottom:8px;">
+    <div>장비명</div>
+    <div>등록번호</div>
+    <div>모델</div>
+    <div>기사</div>
+    <div>종류</div>
+    <div>라인</div>
+    <div>연락처</div>
+    <div></div>
+    <div></div>
+  </div>`;
+  const rowsHtml = sorted.map(eq => {
     const typeBadgeHtml = eq.type
-      ? `<span class="att-zone-badge" style="white-space:nowrap; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(eq.type)}</span>`
+      ? `<span class="att-zone-badge" style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(eq.type)}</span>`
       : `<span class="att-zone-badge" style="white-space:nowrap; background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">종류미지정</span>`;
     const phoneHtml = eq.phone
       ? `<span style="white-space:nowrap; display:inline-block; text-align:center; font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(eq.phone.replace(/-/g, ' - '))}</span>`
@@ -4832,18 +4845,19 @@ function renderEquipmentList(){
     const zoneBadgeHtml = (eq.zone === 'A4' || eq.zone === 'A5')
       ? `<span class="att-zone-badge zone-${eq.zone.toLowerCase()}">${eq.zone}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">라인미지정</span>`;
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(100px,15%) minmax(80px,10%) minmax(90px,11%) minmax(70px,1fr) minmax(90px,11%) minmax(56px,8%) minmax(150px,13%) minmax(56px,8%) minmax(56px,8%); gap:10px; align-items:center; width:100%; box-sizing:border-box;">
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box;">
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(eq.name)}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${regHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${modelHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${operatorHtml}</div>
-      <div>${typeBadgeHtml}</div>
-      <div>${zoneBadgeHtml}</div>
-      <div>${phoneHtml}</div>
+      <div style="overflow:hidden;">${typeBadgeHtml}</div>
+      <div style="overflow:hidden;">${zoneBadgeHtml}</div>
+      <div style="overflow:hidden;">${phoneHtml}</div>
       <button type="button" class="btn small" data-action="equipment-edit" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">수정</button>
       <button type="button" class="btn small danger" data-action="equipment-delete" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
+  area.innerHTML = headerHtml + rowsHtml;
 }
 
 document.getElementById('equipmentAddForm').addEventListener('submit', async (e) => {
