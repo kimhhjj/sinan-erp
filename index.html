@@ -5154,7 +5154,32 @@ function renderInventoryTxFilter(){
   document.getElementById('inventoryTxItemFilterSelect').value = inventoryTxItemFilter;
 }
 
-const INVENTORY_TX_ROW_GRID = 'minmax(84px,11%) minmax(100px,16%) minmax(56px,8%) minmax(50px,8%) minmax(90px,14%) minmax(90px,1fr) minmax(56px,8%) minmax(56px,8%)';
+const INVENTORY_TX_ROW_GRID = 'minmax(84px,10%) minmax(90px,13%) minmax(56px,7%) minmax(46px,6%) minmax(140px,17%) minmax(80px,10%) minmax(80px,1fr) minmax(56px,7%) minmax(56px,7%)';
+
+// 품목별로 거래를 날짜(오름차순) 순서로 훑으면서 각 거래 시점의 "이전재고 -> 이후재고"를 계산한다.
+// 현재고와 동일하게 저장값이 아니라 매번 계산 — 기록을 수정/삭제해도 항상 최신 순서로 다시 계산됨.
+function computeInventoryBalances(){
+  const balanceMap = {};
+  const byItem = {};
+  inventoryTransactions.forEach(tx => {
+    if(!byItem[tx.itemId]) byItem[tx.itemId] = [];
+    byItem[tx.itemId].push(tx);
+  });
+  Object.keys(byItem).forEach(itemId => {
+    const list = byItem[itemId].slice().sort((a, b) => {
+      if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return (a.createdAt || '').localeCompare(b.createdAt || '');
+    });
+    let running = 0;
+    list.forEach(tx => {
+      const q = parseFloat(tx.qty) || 0;
+      const before = running;
+      running += tx.type === 'in' ? q : -q;
+      balanceMap[tx.id] = { before, after: running };
+    });
+  });
+  return balanceMap;
+}
 
 function renderInventoryTxList(){
   const area = document.getElementById('inventoryTxListArea');
@@ -5169,11 +5194,13 @@ function renderInventoryTxList(){
     area.innerHTML = '<div class="empty">표시할 입출고 내역이 없습니다.</div>';
     return;
   }
+  const balanceMap = computeInventoryBalances();
   const headerHtml = `<div class="att-emp-row" style="display:grid; grid-template-columns:${INVENTORY_TX_ROW_GRID}; gap:12px; align-items:center; width:100%; box-sizing:border-box; font-size:11px; color:var(--smoke); text-transform:uppercase; font-weight:700; letter-spacing:0.02em; border-bottom:2px solid var(--ash); padding-bottom:8px;">
     <div>날짜</div>
     <div>품목</div>
     <div>구분</div>
     <div>수량</div>
+    <div>재고 변화</div>
     <div>담당자</div>
     <div>사유</div>
     <div></div>
@@ -5184,18 +5211,25 @@ function renderInventoryTxList(){
       ? `<span class="att-zone-badge" style="white-space:nowrap; background:var(--shadow-tint-blue); color:var(--blue); border:1px solid #b8e0ff; font-size:12px; padding:3px 10px; border-radius:6px;">입고</span>`
       : `<span class="att-zone-badge" style="white-space:nowrap; background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35); font-size:12px; padding:3px 10px; border-radius:6px;">출고</span>`;
     const reasonText = tx.reason ? escapeHtml(tx.reason) : '';
+    const item = inventoryItems.find(x => x.id === tx.itemId);
+    const unitText = item && item.unit ? escapeHtml(item.unit) : '';
+    const bal = balanceMap[tx.id];
+    const balanceHtml = bal
+      ? `<span class="sub" style="font-weight:700; color:var(--charcoal);">${bal.before}${unitText}</span> <span class="sub">→</span> <span style="font-weight:800; color:var(--violet);">${bal.after}${unitText}</span>`
+      : `<span class="sub">-</span>`;
     return `<div class="att-emp-row" style="display:grid; grid-template-columns:${INVENTORY_TX_ROW_GRID}; gap:12px; align-items:center; width:100%; box-sizing:border-box;">
       <div class="sub" style="font-weight:700; color:var(--charcoal);">${escapeHtml(tx.date || '')}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700;">${escapeHtml(tx.itemName || '')}</div>
       <div>${typeBadgeHtml}</div>
       <div style="font-weight:700;">${escapeHtml(String(tx.qty || ''))}</div>
+      <div style="white-space:nowrap;">${balanceHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${escapeHtml(tx.person || '')}</div>
       <div class="sub" title="${reasonText}" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${reasonText}</div>
       <button type="button" class="btn small" data-action="inventory-tx-edit" data-id="${escapeHtml(tx.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">수정</button>
       <button type="button" class="btn small danger" data-action="inventory-tx-delete" data-id="${escapeHtml(tx.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
-  area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:760px;">${headerHtml}${rowsHtml}</div></div>`;
+  area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:900px;">${headerHtml}${rowsHtml}</div></div>`;
 }
 
 document.getElementById('inventoryItemAddForm').addEventListener('submit', async (e) => {
