@@ -4801,7 +4801,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
-const EQUIPMENT_ROW_GRID = 'minmax(100px,13%) minmax(80px,9%) minmax(90px,10%) minmax(70px,1fr) minmax(130px,16%) minmax(64px,7%) minmax(150px,13%) minmax(56px,8%) minmax(56px,8%)';
+const EQUIPMENT_ROW_GRID = 'minmax(90px,13%) minmax(76px,9%) minmax(86px,10%) minmax(64px,1fr) minmax(110px,15%) minmax(56px,7%) minmax(140px,13%) minmax(56px,8%) minmax(56px,8%)';
+const EQUIPMENT_ROW_MIN_WIDTH = '840px';
 
 function renderEquipmentList(){
   const area = document.getElementById('equipmentListArea');
@@ -4857,7 +4858,7 @@ function renderEquipmentList(){
       <button type="button" class="btn small danger" data-action="equipment-delete" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
-  area.innerHTML = headerHtml + rowsHtml;
+  area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:${EQUIPMENT_ROW_MIN_WIDTH};">${headerHtml}${rowsHtml}</div></div>`;
 }
 
 document.getElementById('equipmentAddForm').addEventListener('submit', async (e) => {
@@ -5128,7 +5129,7 @@ function renderInventoryItemList(){
       <button type="button" class="btn small danger" data-action="inventory-item-delete" data-id="${escapeHtml(it.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
-  area.innerHTML = headerHtml + rowsHtml;
+  area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:640px;">${headerHtml}${rowsHtml}</div></div>`;
 }
 
 function renderInventoryTxFilter(){
@@ -5153,6 +5154,8 @@ function renderInventoryTxFilter(){
   document.getElementById('inventoryTxItemFilterSelect').value = inventoryTxItemFilter;
 }
 
+const INVENTORY_TX_ROW_GRID = 'minmax(84px,11%) minmax(100px,16%) minmax(56px,8%) minmax(50px,8%) minmax(90px,14%) minmax(90px,1fr) minmax(56px,8%) minmax(56px,8%)';
+
 function renderInventoryTxList(){
   const area = document.getElementById('inventoryTxListArea');
   if(!area) return;
@@ -5166,12 +5169,22 @@ function renderInventoryTxList(){
     area.innerHTML = '<div class="empty">표시할 입출고 내역이 없습니다.</div>';
     return;
   }
-  area.innerHTML = sorted.map(tx => {
+  const headerHtml = `<div class="att-emp-row" style="display:grid; grid-template-columns:${INVENTORY_TX_ROW_GRID}; gap:12px; align-items:center; width:100%; box-sizing:border-box; font-size:11px; color:var(--smoke); text-transform:uppercase; font-weight:700; letter-spacing:0.02em; border-bottom:2px solid var(--ash); padding-bottom:8px;">
+    <div>날짜</div>
+    <div>품목</div>
+    <div>구분</div>
+    <div>수량</div>
+    <div>담당자</div>
+    <div>사유</div>
+    <div></div>
+    <div></div>
+  </div>`;
+  const rowsHtml = sorted.map(tx => {
     const typeBadgeHtml = tx.type === 'in'
       ? `<span class="att-zone-badge" style="white-space:nowrap; background:var(--shadow-tint-blue); color:var(--blue); border:1px solid #b8e0ff; font-size:12px; padding:3px 10px; border-radius:6px;">입고</span>`
       : `<span class="att-zone-badge" style="white-space:nowrap; background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35); font-size:12px; padding:3px 10px; border-radius:6px;">출고</span>`;
     const reasonText = tx.reason ? escapeHtml(tx.reason) : '';
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:minmax(84px,11%) minmax(100px,16%) minmax(56px,8%) minmax(50px,8%) minmax(90px,14%) minmax(90px,1fr) minmax(56px,8%) minmax(56px,8%); gap:12px; align-items:center; width:100%; box-sizing:border-box;">
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:${INVENTORY_TX_ROW_GRID}; gap:12px; align-items:center; width:100%; box-sizing:border-box;">
       <div class="sub" style="font-weight:700; color:var(--charcoal);">${escapeHtml(tx.date || '')}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700;">${escapeHtml(tx.itemName || '')}</div>
       <div>${typeBadgeHtml}</div>
@@ -5182,6 +5195,7 @@ function renderInventoryTxList(){
       <button type="button" class="btn small danger" data-action="inventory-tx-delete" data-id="${escapeHtml(tx.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
+  area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:760px;">${headerHtml}${rowsHtml}</div></div>`;
 }
 
 document.getElementById('inventoryItemAddForm').addEventListener('submit', async (e) => {
