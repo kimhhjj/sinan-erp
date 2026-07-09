@@ -4722,7 +4722,7 @@ document.getElementById('saveMulsanproProfile').addEventListener('click', async 
 // 인원관리/물산프로정보와 완전히 별도인 명단. 장비종류(equipmentTypes)는 부서/팀과 동일한 방식으로
 // "기본값 + 실제 지정된 값"만 유지되며, 서버에 별도 저장소가 없어 아무 장비도 배정되지 않은
 // 새 종류는 새로고침 시 사라질 수 있다(물산프로정보의 부서 관리와 동일한 한계).
-const EQUIPMENT_TYPE_DEFAULTS = ['지게차', '전동지게차', '굴착기', '거미크레인', '화물차', '테이블리프트(T/L)'];
+const EQUIPMENT_TYPE_DEFAULTS = ['지게차', '전동지게차', '굴착기', '거미크레인', '크롤러크레인', '화물차', '테이블리프트(T/L)'];
 let equipmentList = []; // [{id, name, regNumber, model, operator, phone, type}]
 let equipmentTypes = [...EQUIPMENT_TYPE_DEFAULTS];
 let equipmentTypeFilter = ''; // '' = 전체
