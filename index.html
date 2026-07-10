@@ -1244,7 +1244,7 @@
       <button class="nav-item active" data-category="home">홈</button>
       <button class="nav-item" data-category="mulsanpro">물산프로정보</button>
       <button class="nav-item" data-category="personnel">인원관리</button>
-      <button class="nav-item" data-category="equipment">장비리스트</button>
+      <button class="nav-item" data-category="equipment">장비리스트<span class="badge" id="equipmentAlertNavBadge" style="display:none; background:#e5484d; color:#fff;">0</span></button>
       <button class="nav-item" data-category="inventory">재고관리</button>
       <button class="nav-item" data-category="attendance">출퇴근관리</button>
       <button class="nav-item" data-category="accident">사고근태방</button>
@@ -1262,6 +1262,8 @@
         <div class="page-header">
           <h1>홈</h1>
         </div>
+
+        <div id="equipmentAlertPanel" style="display:none; margin-bottom:20px;"></div>
 
         <div id="calendarLoginGate" class="panel" style="text-align:center; padding:40px 24px;">
           <p style="font-weight:700; font-size:15px; margin-bottom:8px; color:var(--deep-charcoal);">구글 캘린더 연결이 필요합니다</p>
@@ -1385,7 +1387,7 @@
 
         <div class="panel" style="margin-bottom:20px;">
           <p class="block-title">여러 대 한번에 등록</p>
-          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 10px;">한 줄에 장비 한 대씩, "장비명, 등록번호, 모델, 종류, 라인, 반입일, 반출일, 반출예정일, 현장상태" 순서로 쉼표로 구분해서 입력하세요(뒤쪽 항목은 비워도 됩니다). 엑셀에서 여러 칸을 복사해 붙여넣으면(탭 구분) 자동으로 인식됩니다.</p>
+          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 10px;">한 줄에 장비 한 대씩, "장비명, 등록번호, 모델, 종류, 라인, 반입일, 반출일, 반입예정일, 반출예정일, 현장상태" 순서로 쉼표로 구분해서 입력하세요(뒤쪽 항목은 비워도 됩니다). 엑셀에서 여러 칸을 복사해 붙여넣으면(탭 구분) 자동으로 인식됩니다.</p>
           <form id="equipmentBulkAddForm">
             <textarea id="equipment-bulk-add-text" rows="8" placeholder="고소작업대, H0869, OPTIMUM8, 테이블리프트(T/L), A5"></textarea>
             <div style="display:flex; justify-content:flex-end; margin-top:10px;">
@@ -2099,6 +2101,10 @@
     <div class="field" style="margin-bottom:12px;">
       <label for="equipment-edit-exitdate">반출일</label>
       <input type="text" id="equipment-edit-exitdate" placeholder="예: 2026-07-10">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-plannedentry">반입예정일</label>
+      <input type="text" id="equipment-edit-plannedentry" placeholder="예: 2026-07-10">
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="equipment-edit-plannedexit">반출예정일</label>
@@ -4835,8 +4841,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
-const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
-const EQUIPMENT_ROW_MIN_WIDTH = '1780px';
+const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(95px,5%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
+const EQUIPMENT_ROW_MIN_WIDTH = '1885px';
 
 function renderEquipmentZoneSummary(){
   const area = document.getElementById('equipmentZoneSummaryArea');
@@ -4859,8 +4865,47 @@ function renderEquipmentZoneSummary(){
   area.innerHTML = `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0; padding-top:14px; border-top:1px solid var(--ash);"><span class="sub" style="font-weight:700;">${escapeHtml(equipmentZoneFilter)} 라인 구성:</span>${badgesHtml}</div>`;
 }
 
+function renderEquipmentAlerts(){
+  const navBadge = document.getElementById('equipmentAlertNavBadge');
+  const panel = document.getElementById('equipmentAlertPanel');
+  const entryList = equipmentList.filter(eq => eq.plannedEntryDate).sort((a,b) => a.plannedEntryDate.localeCompare(b.plannedEntryDate));
+  const exitList = equipmentList.filter(eq => eq.plannedExitDate).sort((a,b) => a.plannedExitDate.localeCompare(b.plannedExitDate));
+  const total = entryList.length + exitList.length;
+  if(navBadge){
+    if(total > 0){
+      navBadge.textContent = total;
+      navBadge.style.display = '';
+    }else{
+      navBadge.style.display = 'none';
+    }
+  }
+  if(!panel) return;
+  if(total === 0){
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    return;
+  }
+  const rowHtml = (eq, dateLabel, date, color) => `
+    <div style="display:flex; align-items:center; gap:10px; padding:9px 12px; background:#fff; border:1px solid var(--ash); border-radius:8px; margin-bottom:6px; flex-wrap:wrap;">
+      <span style="white-space:nowrap; font-size:11px; font-weight:700; color:#fff; background:${color}; padding:3px 9px; border-radius:6px;">${dateLabel} ${escapeHtml(date)}</span>
+      <span style="font-weight:700; color:var(--charcoal);">${escapeHtml(eq.name)}</span>
+      <span class="sub">${eq.regNumber ? escapeHtml(eq.regNumber) : '등록번호 미입력'}</span>
+      <span class="sub">${eq.model ? escapeHtml(eq.model) : '모델 미입력'}</span>
+      <span class="sub">${eq.operator ? escapeHtml(eq.operator) : '기사 미입력'}</span>
+    </div>`;
+  const entryHtml = entryList.length > 0
+    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:0 0 8px;">🚚 반입예정 장비 (${entryList.length})</p>${entryList.map(eq => rowHtml(eq, '반입예정', eq.plannedEntryDate, '#2f9e44')).join('')}`
+    : '';
+  const exitHtml = exitList.length > 0
+    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${entryList.length > 0 ? '16px' : '0'} 0 8px;">📤 반출예정 장비 (${exitList.length})</p>${exitList.map(eq => rowHtml(eq, '반출예정', eq.plannedExitDate, '#e5484d')).join('')}`
+    : '';
+  panel.style.display = '';
+  panel.innerHTML = `<div class="panel" style="border:2px solid #e5484d;"><p class="block-title" style="margin-bottom:12px;">⚠️ 반입·반출예정 장비 (${total})</p>${entryHtml}${exitHtml}</div>`;
+}
+
 function renderEquipmentList(){
   const area = document.getElementById('equipmentListArea');
+  renderEquipmentAlerts();
   if(!area) return;
   renderEquipmentTypeFilter();
   renderEquipmentZoneFilter();
@@ -4897,6 +4942,7 @@ function renderEquipmentList(){
     <div>연락처</div>
     <div>반입일</div>
     <div>반출일</div>
+    <div>반입예정일</div>
     <div>반출예정일</div>
     <div>현장상태</div>
     <div>PDF</div>
@@ -4918,6 +4964,7 @@ function renderEquipmentList(){
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">라인미지정</span>`;
     const entryDateHtml = eq.entryDate ? escapeHtml(eq.entryDate) : `<span class="sub">-</span>`;
     const exitDateHtml = eq.exitDate ? escapeHtml(eq.exitDate) : `<span class="sub">-</span>`;
+    const plannedEntryHtml = eq.plannedEntryDate ? escapeHtml(eq.plannedEntryDate) : `<span class="sub">-</span>`;
     const plannedExitHtml = eq.plannedExitDate ? escapeHtml(eq.plannedExitDate) : `<span class="sub">-</span>`;
     const siteStatusHtml = eq.siteStatus ? escapeHtml(eq.siteStatus) : `<span class="sub">-</span>`;
     return `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box;">
@@ -4930,6 +4977,7 @@ function renderEquipmentList(){
       <div style="overflow:hidden;">${phoneHtml}</div>
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${entryDateHtml}</div>
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${exitDateHtml}</div>
+      <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${plannedEntryHtml}</div>
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${plannedExitHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${siteStatusHtml}</div>
       <div style="display:flex; flex-wrap:nowrap; gap:4px;">
@@ -4983,7 +5031,7 @@ document.getElementById('equipmentBulkAddForm').addEventListener('submit', async
   let added = 0;
   lines.forEach(line => {
     const parts = (line.includes('\t') ? line.split('\t') : line.split(',')).map(p => p.trim());
-    const [name, regNumber, model, type, zone, entryDate, exitDate, plannedExitDate, siteStatus] = parts;
+    const [name, regNumber, model, type, zone, entryDate, exitDate, plannedEntryDate, plannedExitDate, siteStatus] = parts;
     if(!name) return;
     equipmentList.push({
       id: genEquipmentId(),
@@ -4996,6 +5044,7 @@ document.getElementById('equipmentBulkAddForm').addEventListener('submit', async
       zone: (zone === 'A4' || zone === 'A5') ? zone : '',
       entryDate: entryDate || '',
       exitDate: exitDate || '',
+      plannedEntryDate: plannedEntryDate || '',
       plannedExitDate: plannedExitDate || '',
       siteStatus: siteStatus || ''
     });
@@ -5192,6 +5241,7 @@ function openEquipmentEditModal(id){
   document.getElementById('equipment-edit-zone').value = eq.zone || '';
   document.getElementById('equipment-edit-entrydate').value = eq.entryDate || '';
   document.getElementById('equipment-edit-exitdate').value = eq.exitDate || '';
+  document.getElementById('equipment-edit-plannedentry').value = eq.plannedEntryDate || '';
   document.getElementById('equipment-edit-plannedexit').value = eq.plannedExitDate || '';
   document.getElementById('equipment-edit-sitestatus').value = eq.siteStatus || '';
   document.getElementById('equipmentEditOverlay').classList.add('show');
@@ -5221,6 +5271,7 @@ document.getElementById('saveEquipmentEdit').addEventListener('click', async () 
   eq.zone = document.getElementById('equipment-edit-zone').value;
   eq.entryDate = document.getElementById('equipment-edit-entrydate').value.trim();
   eq.exitDate = document.getElementById('equipment-edit-exitdate').value.trim();
+  eq.plannedEntryDate = document.getElementById('equipment-edit-plannedentry').value.trim();
   eq.plannedExitDate = document.getElementById('equipment-edit-plannedexit').value.trim();
   eq.siteStatus = document.getElementById('equipment-edit-sitestatus').value.trim();
   closeEquipmentEditModal();
