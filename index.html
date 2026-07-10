@@ -4835,8 +4835,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
-const EQUIPMENT_ROW_GRID = 'minmax(130px,10%) minmax(130px,8%) minmax(140px,9%) minmax(60px,5%) minmax(150px,10%) minmax(50px,4%) minmax(120px,7%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(150px,8%) minmax(56px,4%) minmax(56px,4%)';
-const EQUIPMENT_ROW_MIN_WIDTH = '1660px';
+const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
+const EQUIPMENT_ROW_MIN_WIDTH = '1780px';
 
 function renderEquipmentZoneSummary(){
   const area = document.getElementById('equipmentZoneSummaryArea');
@@ -4932,7 +4932,7 @@ function renderEquipmentList(){
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${exitDateHtml}</div>
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${plannedExitHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${siteStatusHtml}</div>
-      <div style="display:flex; flex-wrap:wrap; gap:4px;">
+      <div style="display:flex; flex-wrap:nowrap; gap:4px;">
         <button type="button" class="btn small" data-action="equipment-pdf-upload" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">${eq.pdfFileId ? '재업로드' : '업로드'}</button>
         ${eq.pdfFileId ? `<button type="button" class="btn small" data-action="equipment-pdf-preview" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">미리보기</button>
         <button type="button" class="btn small" data-action="equipment-pdf-print" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">인쇄</button>` : ''}
