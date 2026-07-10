@@ -1422,7 +1422,9 @@
         <div class="panel">
           <p class="block-title">등록된 장비 (<span class="count" id="equipmentCountLabel">0</span>대)</p>
           <p style="font-size:12px; color:var(--smoke); margin:-6px 0 14px;">위의 장비 종류 탭이나 아래 라인 탭을 누르면 해당하는 장비만 볼 수 있습니다. "수정" 버튼으로 내용을 고칠 수 있습니다.</p>
-          <div class="att-zone-tabs" id="equipmentZoneFilterArea" style="margin-top:0; margin-bottom:14px; border-top:none; padding-top:0;"></div>
+          <input type="text" id="equipmentSearchInput" placeholder="장비명・등록번호・모델・기사로 검색" style="max-width:320px; margin-bottom:14px;">
+          <div class="att-zone-tabs" id="equipmentZoneFilterArea" style="margin-top:0; margin-bottom:0; border-top:none; padding-top:0;"></div>
+          <div id="equipmentZoneSummaryArea"></div>
           <div id="equipmentListArea"><div class="loading">불러오는 중...</div></div>
         </div>
       </div>
@@ -4754,6 +4756,7 @@ let equipmentList = []; // [{id, name, regNumber, model, operator, phone, type}]
 let equipmentTypes = [...EQUIPMENT_TYPE_DEFAULTS];
 let equipmentTypeFilter = ''; // '' = 전체
 let equipmentZoneFilter = ''; // '' = 전체, 'A4', 'A5'
+let equipmentSearchQuery = '';
 let equipmentInitialized = false;
 
 function initEquipmentViewIfNeeded(){
@@ -4831,11 +4834,33 @@ function renderEquipmentZoneFilter(){
 const EQUIPMENT_ROW_GRID = 'minmax(90px,12%) minmax(150px,13%) minmax(86px,9%) minmax(64px,1fr) minmax(110px,13%) minmax(56px,6%) minmax(140px,12%) minmax(56px,7%) minmax(56px,7%)';
 const EQUIPMENT_ROW_MIN_WIDTH = '960px';
 
+function renderEquipmentZoneSummary(){
+  const area = document.getElementById('equipmentZoneSummaryArea');
+  if(!area) return;
+  if(!equipmentZoneFilter){
+    area.innerHTML = '';
+    return;
+  }
+  const counts = {};
+  equipmentList.filter(eq => eq.zone === equipmentZoneFilter).forEach(eq => {
+    const t = eq.type || '종류미지정';
+    counts[t] = (counts[t] || 0) + 1;
+  });
+  const types = Object.keys(counts).sort((a, b) => a.localeCompare(b, 'ko'));
+  if(types.length === 0){
+    area.innerHTML = '';
+    return;
+  }
+  const badgesHtml = types.map(t => `<span class="att-zone-badge" style="white-space:nowrap; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(t)} ${counts[t]}대</span>`).join(' ');
+  area.innerHTML = `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0; padding-top:14px; border-top:1px solid var(--ash);"><span class="sub" style="font-weight:700;">${escapeHtml(equipmentZoneFilter)} 라인 구성:</span>${badgesHtml}</div>`;
+}
+
 function renderEquipmentList(){
   const area = document.getElementById('equipmentListArea');
   if(!area) return;
   renderEquipmentTypeFilter();
   renderEquipmentZoneFilter();
+  renderEquipmentZoneSummary();
   populateEquipmentTypeSelect(document.getElementById('equipment-add-type'), '');
   let sorted = [...equipmentList].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   if(equipmentTypeFilter){
@@ -4843,6 +4868,15 @@ function renderEquipmentList(){
   }
   if(equipmentZoneFilter){
     sorted = sorted.filter(eq => eq.zone === equipmentZoneFilter);
+  }
+  if(equipmentSearchQuery){
+    const q = equipmentSearchQuery;
+    sorted = sorted.filter(eq =>
+      (eq.name || '').toLowerCase().includes(q) ||
+      (eq.regNumber || '').toLowerCase().includes(q) ||
+      (eq.model || '').toLowerCase().includes(q) ||
+      (eq.operator || '').toLowerCase().includes(q)
+    );
   }
   document.getElementById('equipmentCountLabel').textContent = sorted.length;
   if(sorted.length === 0){
@@ -4887,6 +4921,11 @@ function renderEquipmentList(){
   }).join('');
   area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:${EQUIPMENT_ROW_MIN_WIDTH};">${headerHtml}${rowsHtml}</div></div>`;
 }
+
+document.getElementById('equipmentSearchInput').addEventListener('input', (e) => {
+  equipmentSearchQuery = e.target.value.trim().toLowerCase();
+  renderEquipmentList();
+});
 
 document.getElementById('equipmentAddForm').addEventListener('submit', async (e) => {
   e.preventDefault();
