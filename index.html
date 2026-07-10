@@ -2116,6 +2116,8 @@
 </div>
 
 
+<input type="file" id="equipmentPdfFileInput" accept="application/pdf" style="display:none">
+
 <div class="modal-overlay" id="inventoryItemEditOverlay">
   <div class="modal" style="max-width:420px;">
     <h3>품목 수정</h3>
@@ -4757,6 +4759,8 @@ let equipmentTypes = [...EQUIPMENT_TYPE_DEFAULTS];
 let equipmentTypeFilter = ''; // '' = 전체
 let equipmentZoneFilter = ''; // '' = 전체, 'A4', 'A5'
 let equipmentSearchQuery = '';
+let equipmentPdfFolderId = null;
+let equipmentPdfUploadTargetId = null;
 let equipmentInitialized = false;
 
 function initEquipmentViewIfNeeded(){
@@ -4831,8 +4835,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
-const EQUIPMENT_ROW_GRID = 'minmax(130px,11%) minmax(130px,9%) minmax(140px,10%) minmax(60px,5%) minmax(150px,11%) minmax(50px,4%) minmax(120px,8%) minmax(85px,6%) minmax(85px,6%) minmax(95px,6%) minmax(95px,6%) minmax(56px,4%) minmax(56px,4%)';
-const EQUIPMENT_ROW_MIN_WIDTH = '1480px';
+const EQUIPMENT_ROW_GRID = 'minmax(130px,10%) minmax(130px,8%) minmax(140px,9%) minmax(60px,5%) minmax(150px,10%) minmax(50px,4%) minmax(120px,7%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(150px,8%) minmax(56px,4%) minmax(56px,4%)';
+const EQUIPMENT_ROW_MIN_WIDTH = '1660px';
 
 function renderEquipmentZoneSummary(){
   const area = document.getElementById('equipmentZoneSummaryArea');
@@ -4895,6 +4899,7 @@ function renderEquipmentList(){
     <div>반출일</div>
     <div>반출예정일</div>
     <div>현장상태</div>
+    <div>PDF</div>
     <div></div>
     <div></div>
   </div>`;
@@ -4927,6 +4932,11 @@ function renderEquipmentList(){
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${exitDateHtml}</div>
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${plannedExitHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${siteStatusHtml}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:4px;">
+        <button type="button" class="btn small" data-action="equipment-pdf-upload" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">${eq.pdfFileId ? '재업로드' : '업로드'}</button>
+        ${eq.pdfFileId ? `<button type="button" class="btn small" data-action="equipment-pdf-preview" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">미리보기</button>
+        <button type="button" class="btn small" data-action="equipment-pdf-print" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">인쇄</button>` : ''}
+      </div>
       <button type="button" class="btn small" data-action="equipment-edit" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">수정</button>
       <button type="button" class="btn small danger" data-action="equipment-delete" data-id="${escapeHtml(eq.id)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
@@ -5066,8 +5076,107 @@ document.getElementById('equipmentListArea').addEventListener('click', async (e)
     renderEquipmentList();
     showToast(`"${eq.name}" 장비를 삭제했습니다.`);
     await saveEquipmentList();
+    return;
+  }
+  const pdfUploadBtn = e.target.closest('button[data-action="equipment-pdf-upload"]');
+  if(pdfUploadBtn){
+    if(!gcalAccessToken){
+      showToast('먼저 홈 화면에서 구글 계정으로 로그인해주세요. (PDF는 구글 드라이브에 저장됩니다)');
+      return;
+    }
+    equipmentPdfUploadTargetId = pdfUploadBtn.dataset.id;
+    document.getElementById('equipmentPdfFileInput').click();
+    return;
+  }
+  const pdfPreviewBtn = e.target.closest('button[data-action="equipment-pdf-preview"]');
+  if(pdfPreviewBtn){
+    const eq = equipmentList.find(x => x.id === pdfPreviewBtn.dataset.id);
+    if(!eq || !eq.pdfFileId) return;
+    openFilePreview(eq.pdfFileId, eq.pdfFileName || (eq.name + '.pdf'), 'application/pdf');
+    return;
+  }
+  const pdfPrintBtn = e.target.closest('button[data-action="equipment-pdf-print"]');
+  if(pdfPrintBtn){
+    const eq = equipmentList.find(x => x.id === pdfPrintBtn.dataset.id);
+    if(!eq || !eq.pdfFileId) return;
+    printEquipmentPdf(eq);
   }
 });
+
+/* ---- 장비 PDF (구글 드라이브) ---- */
+// PDF 원본은 구글 드라이브에 저장하고, 장비 레코드에는 파일 id/이름만 보관한다(구글 시트는
+// 바이너리 파일을 저장할 수 없으므로 안전관리 카테고리와 동일하게 드라이브를 파일 저장소로 재사용).
+async function ensureEquipmentPdfFolder(){
+  if(equipmentPdfFolderId) return equipmentPdfFolderId;
+  const q = `name='장비리스트_PDF' and mimeType='application/vnd.google-apps.folder' and '${DRIVE_ROOT_FOLDER_ID}' in parents and trashed=false`;
+  const res = await driveApiFetch(`/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  const data = await res.json();
+  if(data.files && data.files.length > 0){
+    equipmentPdfFolderId = data.files[0].id;
+    return equipmentPdfFolderId;
+  }
+  const createRes = await driveApiFetch('/files', {
+    method: 'POST',
+    body: JSON.stringify({ name: '장비리스트_PDF', mimeType: 'application/vnd.google-apps.folder', parents: [DRIVE_ROOT_FOLDER_ID] })
+  });
+  const created = await createRes.json();
+  equipmentPdfFolderId = created.id;
+  return equipmentPdfFolderId;
+}
+
+document.getElementById('equipmentPdfFileInput').addEventListener('change', async (e) => {
+  const file = (e.target.files || [])[0];
+  const targetId = equipmentPdfUploadTargetId;
+  e.target.value = '';
+  equipmentPdfUploadTargetId = null;
+  if(!file || !targetId) return;
+  const eq = equipmentList.find(x => x.id === targetId);
+  if(!eq) return;
+  if(file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+    showToast('PDF 파일만 업로드할 수 있습니다.');
+    return;
+  }
+  showToast('PDF 업로드 중...');
+  try{
+    const folderId = await ensureEquipmentPdfFolder();
+    const fileName = `${eq.name}_${eq.regNumber || eq.id}.pdf`;
+    const metadata = { name: fileName, parents: [folderId] };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + gcalAccessToken },
+      body: form
+    });
+    if(res.status === 401){
+      handleGcalUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    eq.pdfFileId = data.id;
+    eq.pdfFileName = data.name || fileName;
+    renderEquipmentList();
+    showToast(`"${eq.name}"에 PDF를 업로드했습니다.`);
+    await saveEquipmentList();
+  }catch(err){
+    showToast('PDF 업로드에 실패했습니다.');
+  }
+});
+
+async function printEquipmentPdf(eq){
+  showToast('PDF를 새 탭에서 여는 중...');
+  try{
+    const res = await driveApiFetch(`/files/${eq.pdfFileId}?alt=media`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }catch(err){
+    if(err.message !== 'unauthorized'){
+      showToast('PDF를 여는 데 실패했습니다.');
+    }
+  }
+}
 
 /* ---- 장비 수정 모달 ---- */
 function openEquipmentEditModal(id){
