@@ -1427,7 +1427,7 @@
             <input type="text" id="inventory-item-add-icon" placeholder="아이콘" maxlength="4" style="flex:0 0 64px; text-align:center;">
             <input type="text" id="inventory-item-add-name" placeholder="품목명 (예: 안전모)" maxlength="60" required style="flex:1 1 160px;">
             <input type="text" id="inventory-item-add-unit" placeholder="단위 (예: 개, 박스)" maxlength="20" style="flex:1 1 100px;">
-            <input type="number" id="inventory-item-add-safety" placeholder="안전재고 수량" min="0" style="flex:1 1 120px;">
+            <input type="number" id="inventory-item-add-safety" placeholder="안전재고 수량" min="0" step="any" style="flex:1 1 120px;">
             <button type="submit" class="btn primary" style="flex:0 0 auto;">+ 품목 추가</button>
           </form>
         </div>
@@ -1440,7 +1440,7 @@
               <option value="in">입고</option>
               <option value="out">출고</option>
             </select>
-            <input type="number" id="inventory-tx-add-qty" placeholder="수량" min="1" required style="flex:1 1 90px;">
+            <input type="number" id="inventory-tx-add-qty" placeholder="수량" min="0" step="any" required style="flex:1 1 90px;">
             <input type="date" id="inventory-tx-add-date" required style="flex:1 1 150px;">
             <input type="text" id="inventory-tx-add-person" placeholder="담당자 (가져간 사람)" maxlength="40" required style="flex:1 1 150px;">
             <input type="text" id="inventory-tx-add-reason" placeholder="사유/메모 (선택)" maxlength="80" style="flex:1 1 160px;">
@@ -2142,7 +2142,7 @@
     </div>
     <div class="field" style="margin-bottom:18px;">
       <label for="inventory-item-edit-safety">안전재고 수량</label>
-      <input type="number" id="inventory-item-edit-safety" min="0">
+      <input type="number" id="inventory-item-edit-safety" min="0" step="any">
     </div>
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelInventoryItemEdit">취소</button>
@@ -2169,7 +2169,7 @@
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="inventory-tx-edit-qty">수량</label>
-      <input type="number" id="inventory-tx-edit-qty" min="1" required>
+      <input type="number" id="inventory-tx-edit-qty" min="0" step="any" required>
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="inventory-tx-edit-date">날짜</label>
