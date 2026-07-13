@@ -1201,6 +1201,10 @@
         </button>
         <div class="otp-bar"><div class="otp-bar-fill" id="otpBarFill"></div></div>
       </div>
+      <div id="insuranceAlertCard" style="display:none; margin:12px 0; padding:10px 12px; background:#fff5f5; border:1.5px solid #e5484d; border-radius:10px;">
+        <p style="margin:0 0 6px; font-size:12.5px; font-weight:700; color:#e5484d;">🛡️ 보험 만료 임박</p>
+        <div id="insuranceAlertList"></div>
+      </div>
       <div class="nav-divider"></div>
       <p class="nav-label">알림</p>
       <div class="notify-card" id="notifyCard-accident">
@@ -1387,7 +1391,7 @@
 
         <div class="panel" style="margin-bottom:20px;">
           <p class="block-title">여러 대 한번에 등록</p>
-          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 10px;">한 줄에 장비 한 대씩, "장비명, 등록번호, 모델, 종류, 라인, 반입일, 반출일, 반입예정일, 반출예정일, 현장상태" 순서로 쉼표로 구분해서 입력하세요(뒤쪽 항목은 비워도 됩니다). 엑셀에서 여러 칸을 복사해 붙여넣으면(탭 구분) 자동으로 인식됩니다.</p>
+          <p style="font-size:12px; color:var(--smoke); margin:-6px 0 10px;">한 줄에 장비 한 대씩, "장비명, 등록번호, 모델, 종류, 라인, 반입일, 반출일, 반입예정일, 반출예정일, 현장상태, 보험시작일, 보험만료일" 순서로 쉼표로 구분해서 입력하세요(뒤쪽 항목은 비워도 됩니다). 엑셀에서 여러 칸을 복사해 붙여넣으면(탭 구분) 자동으로 인식됩니다.</p>
           <form id="equipmentBulkAddForm">
             <textarea id="equipment-bulk-add-text" rows="8" placeholder="고소작업대, H0869, OPTIMUM8, 테이블리프트(T/L), A5"></textarea>
             <div style="display:flex; justify-content:flex-end; margin-top:10px;">
@@ -2110,9 +2114,17 @@
       <label for="equipment-edit-plannedexit">반출예정일</label>
       <input type="text" id="equipment-edit-plannedexit" placeholder="예: 2026-07-10">
     </div>
-    <div class="field" style="margin-bottom:18px;">
+    <div class="field" style="margin-bottom:12px;">
       <label for="equipment-edit-sitestatus">현장상태</label>
       <input type="text" id="equipment-edit-sitestatus" placeholder="예: 현장 반입 / 반출예정 / 반출 완료">
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label for="equipment-edit-insurancestart">보험시작일</label>
+      <input type="text" id="equipment-edit-insurancestart" placeholder="예: 2026-01-01">
+    </div>
+    <div class="field" style="margin-bottom:18px;">
+      <label for="equipment-edit-insuranceend">보험만료일</label>
+      <input type="text" id="equipment-edit-insuranceend" placeholder="예: 2026-12-31">
     </div>
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button type="button" class="btn" id="cancelEquipmentEdit">취소</button>
@@ -4841,8 +4853,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
-const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(95px,5%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
-const EQUIPMENT_ROW_MIN_WIDTH = '1885px';
+const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(95px,5%) minmax(100px,5%) minmax(100px,5%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
+const EQUIPMENT_ROW_MIN_WIDTH = '2095px';
 
 function renderEquipmentZoneSummary(){
   const area = document.getElementById('equipmentZoneSummaryArea');
@@ -4865,18 +4877,50 @@ function renderEquipmentZoneSummary(){
   area.innerHTML = `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0; padding-top:14px; border-top:1px solid var(--ash);"><span class="sub" style="font-weight:700;">${escapeHtml(equipmentZoneFilter)} 라인 구성:</span>${badgesHtml}</div>`;
 }
 
+function getDaysUntil(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  if(isNaN(d.getTime())) return null;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  d.setHours(0,0,0,0);
+  return Math.round((d - today) / 86400000);
+}
+
 function renderEquipmentAlerts(){
   const navBadge = document.getElementById('equipmentAlertNavBadge');
   const panel = document.getElementById('equipmentAlertPanel');
+  const insuranceCard = document.getElementById('insuranceAlertCard');
+  const insuranceListArea = document.getElementById('insuranceAlertList');
   const entryList = equipmentList.filter(eq => eq.plannedEntryDate).sort((a,b) => a.plannedEntryDate.localeCompare(b.plannedEntryDate));
   const exitList = equipmentList.filter(eq => eq.plannedExitDate).sort((a,b) => a.plannedExitDate.localeCompare(b.plannedExitDate));
-  const total = entryList.length + exitList.length;
+  const insuranceList = equipmentList
+    .map(eq => ({ eq, daysLeft: getDaysUntil(eq.insuranceEndDate) }))
+    .filter(x => x.daysLeft !== null && x.daysLeft <= 7)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+  const total = entryList.length + exitList.length + insuranceList.length;
   if(navBadge){
     if(total > 0){
       navBadge.textContent = total;
       navBadge.style.display = '';
     }else{
       navBadge.style.display = 'none';
+    }
+  }
+  if(insuranceCard && insuranceListArea){
+    if(insuranceList.length > 0){
+      insuranceCard.style.display = '';
+      insuranceListArea.innerHTML = insuranceList.map(({eq, daysLeft}) => {
+        const dLabel = daysLeft < 0 ? '만료' : (daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`);
+        return `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:5px 0; border-top:1px solid #fbdada;">
+          <span style="white-space:nowrap; font-size:10.5px; font-weight:700; color:#fff; background:#e5484d; padding:2px 7px; border-radius:5px;">${dLabel}</span>
+          <span style="font-size:12.5px; font-weight:700; color:var(--charcoal);">${escapeHtml(eq.name)}</span>
+          <span class="sub" style="font-size:11.5px;">${eq.regNumber ? escapeHtml(eq.regNumber) : '등록번호 미입력'} / ${eq.operator ? escapeHtml(eq.operator) : '기사 미입력'}</span>
+        </div>`;
+      }).join('');
+    }else{
+      insuranceCard.style.display = 'none';
+      insuranceListArea.innerHTML = '';
     }
   }
   if(!panel) return;
@@ -4899,8 +4943,11 @@ function renderEquipmentAlerts(){
   const exitHtml = exitList.length > 0
     ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${entryList.length > 0 ? '16px' : '0'} 0 8px;">📤 반출예정 장비 (${exitList.length})</p>${exitList.map(eq => rowHtml(eq, '반출예정', eq.plannedExitDate, '#e5484d')).join('')}`
     : '';
+  const insuranceHtml = insuranceList.length > 0
+    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${(entryList.length > 0 || exitList.length > 0) ? '16px' : '0'} 0 8px;">🛡️ 보험 만료 임박 장비 (${insuranceList.length})</p>${insuranceList.map(({eq, daysLeft}) => rowHtml(eq, daysLeft < 0 ? '만료' : (daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`), eq.insuranceEndDate, '#e5484d')).join('')}`
+    : '';
   panel.style.display = '';
-  panel.innerHTML = `<div class="panel" style="border:2px solid #e5484d;"><p class="block-title" style="margin-bottom:12px;">⚠️ 반입·반출예정 장비 (${total})</p>${entryHtml}${exitHtml}</div>`;
+  panel.innerHTML = `<div class="panel" style="border:2px solid #e5484d;"><p class="block-title" style="margin-bottom:12px;">⚠️ 장비 알림 (${total})</p>${entryHtml}${exitHtml}${insuranceHtml}</div>`;
 }
 
 function renderEquipmentList(){
@@ -4945,6 +4992,8 @@ function renderEquipmentList(){
     <div>반입예정일</div>
     <div>반출예정일</div>
     <div>현장상태</div>
+    <div>보험시작일</div>
+    <div>보험만료일</div>
     <div>PDF</div>
     <div></div>
     <div></div>
@@ -4967,6 +5016,17 @@ function renderEquipmentList(){
     const plannedEntryHtml = eq.plannedEntryDate ? escapeHtml(eq.plannedEntryDate) : `<span class="sub">-</span>`;
     const plannedExitHtml = eq.plannedExitDate ? escapeHtml(eq.plannedExitDate) : `<span class="sub">-</span>`;
     const siteStatusHtml = eq.siteStatus ? escapeHtml(eq.siteStatus) : `<span class="sub">-</span>`;
+    const insuranceStartHtml = eq.insuranceStartDate ? escapeHtml(eq.insuranceStartDate) : `<span class="sub">-</span>`;
+    const insuranceDaysLeft = getDaysUntil(eq.insuranceEndDate);
+    let insuranceEndHtml = `<span class="sub">-</span>`;
+    if(eq.insuranceEndDate){
+      if(insuranceDaysLeft !== null && insuranceDaysLeft <= 7){
+        const dLabel = insuranceDaysLeft < 0 ? '만료' : (insuranceDaysLeft === 0 ? 'D-DAY' : `D-${insuranceDaysLeft}`);
+        insuranceEndHtml = `<span style="white-space:nowrap; display:inline-block; font-size:11px; font-weight:700; color:#fff; background:#e5484d; padding:2px 7px; border-radius:6px; margin-right:5px;">${dLabel}</span>${escapeHtml(eq.insuranceEndDate)}`;
+      }else{
+        insuranceEndHtml = escapeHtml(eq.insuranceEndDate);
+      }
+    }
     return `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box;">
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(eq.name)}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${regHtml}</div>
@@ -4980,6 +5040,8 @@ function renderEquipmentList(){
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${plannedEntryHtml}</div>
       <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${plannedExitHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${siteStatusHtml}</div>
+      <div class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${insuranceStartHtml}</div>
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${insuranceEndHtml}</div>
       <div style="display:flex; flex-wrap:nowrap; gap:4px;">
         <button type="button" class="btn small" data-action="equipment-pdf-upload" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">${eq.pdfFileId ? '재업로드' : '업로드'}</button>
         ${eq.pdfFileId ? `<button type="button" class="btn small" data-action="equipment-pdf-preview" data-id="${escapeHtml(eq.id)}" style="padding-left:6px; padding-right:6px;">미리보기</button>
@@ -5031,7 +5093,7 @@ document.getElementById('equipmentBulkAddForm').addEventListener('submit', async
   let added = 0;
   lines.forEach(line => {
     const parts = (line.includes('\t') ? line.split('\t') : line.split(',')).map(p => p.trim());
-    const [name, regNumber, model, type, zone, entryDate, exitDate, plannedEntryDate, plannedExitDate, siteStatus] = parts;
+    const [name, regNumber, model, type, zone, entryDate, exitDate, plannedEntryDate, plannedExitDate, siteStatus, insuranceStartDate, insuranceEndDate] = parts;
     if(!name) return;
     equipmentList.push({
       id: genEquipmentId(),
@@ -5046,7 +5108,9 @@ document.getElementById('equipmentBulkAddForm').addEventListener('submit', async
       exitDate: exitDate || '',
       plannedEntryDate: plannedEntryDate || '',
       plannedExitDate: plannedExitDate || '',
-      siteStatus: siteStatus || ''
+      siteStatus: siteStatus || '',
+      insuranceStartDate: insuranceStartDate || '',
+      insuranceEndDate: insuranceEndDate || ''
     });
     added++;
   });
@@ -5244,6 +5308,8 @@ function openEquipmentEditModal(id){
   document.getElementById('equipment-edit-plannedentry').value = eq.plannedEntryDate || '';
   document.getElementById('equipment-edit-plannedexit').value = eq.plannedExitDate || '';
   document.getElementById('equipment-edit-sitestatus').value = eq.siteStatus || '';
+  document.getElementById('equipment-edit-insurancestart').value = eq.insuranceStartDate || '';
+  document.getElementById('equipment-edit-insuranceend').value = eq.insuranceEndDate || '';
   document.getElementById('equipmentEditOverlay').classList.add('show');
 }
 function closeEquipmentEditModal(){
@@ -5274,6 +5340,8 @@ document.getElementById('saveEquipmentEdit').addEventListener('click', async () 
   eq.plannedEntryDate = document.getElementById('equipment-edit-plannedentry').value.trim();
   eq.plannedExitDate = document.getElementById('equipment-edit-plannedexit').value.trim();
   eq.siteStatus = document.getElementById('equipment-edit-sitestatus').value.trim();
+  eq.insuranceStartDate = document.getElementById('equipment-edit-insurancestart').value.trim();
+  eq.insuranceEndDate = document.getElementById('equipment-edit-insuranceend').value.trim();
   closeEquipmentEditModal();
   refreshEquipmentTypes();
   renderEquipmentList();
