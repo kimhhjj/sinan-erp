@@ -2003,18 +2003,33 @@
       <input type="text" id="personnel-profile-address">
     </div>
     <div class="field" style="margin-bottom:12px;">
-      <label for="personnel-profile-blood">혈액형</label>
-      <select id="personnel-profile-blood">
+      <label for="personnel-profile-position">직급</label>
+      <select id="personnel-profile-position">
         <option value="">선택안함</option>
-        <option value="A">A형</option>
-        <option value="B">B형</option>
-        <option value="O">O형</option>
-        <option value="AB">AB형</option>
+        <option value="기술인">기술인</option>
+        <option value="대리">대리</option>
+        <option value="과장">과장</option>
+        <option value="차장">차장</option>
+        <option value="부장">부장</option>
       </select>
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="personnel-profile-trade">직공</label>
-      <input type="text" id="personnel-profile-trade" placeholder="예: 형틀목공, 철근공, 비계공">
+      <select id="personnel-profile-trade">
+        <option value="">선택안함</option>
+        <option value="화재감시자">화재감시자</option>
+        <option value="유도원">유도원</option>
+        <option value="신호수">신호수</option>
+        <option value="관리자">관리자</option>
+        <option value="철거공">철거공</option>
+        <option value="TL운전원">TL운전원</option>
+        <option value="화물차운전원">화물차운전원</option>
+        <option value="지게차운전원">지게차운전원</option>
+        <option value="지게차(전동)운전원">지게차(전동)운전원</option>
+        <option value="거미크레인운전원">거미크레인운전원</option>
+        <option value="굴착기운전원">굴착기운전원</option>
+        <option value="크롤러크레인운전원">크롤러크레인운전원</option>
+      </select>
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="personnel-profile-career">경력</label>
@@ -4256,6 +4271,26 @@ function refreshTeamsFromEmployees(){
   attTeams = [...set].sort((a,b) => a.localeCompare(b, 'ko'));
 }
 
+const PERSONNEL_TEAM_PALETTE = [
+  { bg: 'rgba(123,104,238,0.12)', fg: '#7b68ee', bd: 'rgba(123,104,238,0.35)' },
+  { bg: 'rgba(47,158,68,0.12)',  fg: '#2f9e44', bd: 'rgba(47,158,68,0.35)' },
+  { bg: 'rgba(230,126,34,0.12)', fg: '#e67e22', bd: 'rgba(230,126,34,0.35)' },
+  { bg: 'rgba(29,161,242,0.12)', fg: '#1da1f2', bd: 'rgba(29,161,242,0.35)' },
+  { bg: 'rgba(214,51,108,0.12)', fg: '#d6336c', bd: 'rgba(214,51,108,0.35)' },
+  { bg: 'rgba(11,153,143,0.12)', fg: '#0b998f', bd: 'rgba(11,153,143,0.35)' },
+  { bg: 'rgba(174,62,201,0.12)', fg: '#ae3ec9', bd: 'rgba(174,62,201,0.35)' },
+  { bg: 'rgba(191,148,14,0.14)', fg: '#8a6d00', bd: 'rgba(191,148,14,0.4)' },
+  { bg: 'rgba(224,49,49,0.12)',  fg: '#e03131', bd: 'rgba(224,49,49,0.35)' },
+  { bg: 'rgba(56,103,214,0.12)', fg: '#3867d6', bd: 'rgba(56,103,214,0.35)' }
+];
+function getTeamColor(teamName){
+  let hash = 0;
+  for(let i = 0; i < teamName.length; i++){
+    hash = (hash * 31 + teamName.charCodeAt(i)) >>> 0;
+  }
+  return PERSONNEL_TEAM_PALETTE[hash % PERSONNEL_TEAM_PALETTE.length];
+}
+
 function renderPersonnelTeamFilter(){
   const area = document.getElementById('personnelTeamFilterArea');
   if(!area) return;
@@ -4293,13 +4328,20 @@ function renderPersonnelList(){
     const zoneBadgeHtml = (emp.zone === 'A4' || emp.zone === 'A5')
       ? `<span class="att-zone-badge zone-${emp.zone.toLowerCase()}">${emp.zone}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">미배정</span>`;
+    const teamColor = emp.team ? getTeamColor(emp.team) : null;
     const teamBadgeHtml = emp.team
-      ? `<span class="att-zone-badge" style="background:rgba(123,104,238,0.12); color:var(--violet); border:1px solid rgba(123,104,238,0.35);">${escapeHtml(emp.team)}</span>`
+      ? `<span class="att-zone-badge" style="background:${teamColor.bg}; color:${teamColor.fg}; border:1px solid ${teamColor.bd};">${escapeHtml(emp.team)}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">팀미배정</span>`;
+    const phoneDisplayHtml = `<span class="sub">${emp.phone ? escapeHtml(emp.phone) : '번호 미입력'}</span>`;
+    const tradeDisplayHtml = `<span class="sub">${emp.trade ? escapeHtml(emp.trade) : '직공 미지정'}</span>`;
+    const positionDisplayHtml = `<span class="sub">${emp.position ? escapeHtml(emp.position) : '직급 미지정'}</span>`;
     return `<div class="att-emp-row">
       <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
       ${zoneBadgeHtml}
       ${teamBadgeHtml}
+      ${phoneDisplayHtml}
+      ${tradeDisplayHtml}
+      ${positionDisplayHtml}
       <span class="sub">${count}건 기록</span>
       <button type="button" class="btn small" data-action="personnel-zone-edit" data-name="${escapeHtml(emp.name)}">구역수정</button>
       <button type="button" class="btn small" data-action="personnel-team-move" data-name="${escapeHtml(emp.name)}">팀이동</button>
@@ -4518,7 +4560,7 @@ function openPersonnelProfileModal(name){
   document.getElementById('personnel-profile-birth').value = emp.birthDate || '';
   document.getElementById('personnel-profile-phone').value = emp.phone || '';
   document.getElementById('personnel-profile-address').value = emp.address || '';
-  document.getElementById('personnel-profile-blood').value = emp.bloodType || '';
+  document.getElementById('personnel-profile-position').value = emp.position || '';
   document.getElementById('personnel-profile-trade').value = emp.trade || '';
   document.getElementById('personnel-profile-career').value = emp.career || '';
   document.getElementById('personnel-profile-note').value = emp.note || '';
@@ -4538,8 +4580,8 @@ document.getElementById('savePersonnelProfile').addEventListener('click', async 
   emp.birthDate = document.getElementById('personnel-profile-birth').value;
   emp.phone = document.getElementById('personnel-profile-phone').value.trim();
   emp.address = document.getElementById('personnel-profile-address').value.trim();
-  emp.bloodType = document.getElementById('personnel-profile-blood').value;
-  emp.trade = document.getElementById('personnel-profile-trade').value.trim();
+  emp.position = document.getElementById('personnel-profile-position').value;
+  emp.trade = document.getElementById('personnel-profile-trade').value;
   emp.career = document.getElementById('personnel-profile-career').value.trim();
   emp.note = document.getElementById('personnel-profile-note').value.trim();
   closePersonnelProfile();
@@ -7035,7 +7077,7 @@ async function mergeEmployeeNames(targetName, sourceNames, customMessage){
   attRecords = newRecords;
 
   // 2) 직원 명단에서 source 이름들 제거 (구역/팀/프로필 정보는 target으로 옮겨서 보존)
-  const PROFILE_FIELDS = ['zone', 'team', 'birthDate', 'phone', 'address', 'bloodType', 'trade', 'career', 'note'];
+  const PROFILE_FIELDS = ['zone', 'team', 'birthDate', 'phone', 'address', 'position', 'trade', 'career', 'note'];
   const sourceEmps = attEmployees.filter(e => sourceNames.includes(e.name));
   attEmployees = attEmployees.filter(e => !sourceNames.includes(e.name));
   let targetEmp = attEmployees.find(e => e.name === targetName);
