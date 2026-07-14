@@ -2116,7 +2116,12 @@
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="equipment-edit-sitestatus">현장상태</label>
-      <input type="text" id="equipment-edit-sitestatus" placeholder="예: 현장 반입 / 반출예정 / 반출 완료">
+      <select id="equipment-edit-sitestatus">
+        <option value="">상태 미지정</option>
+        <option value="사용중">사용중</option>
+        <option value="반출예정">반출예정</option>
+        <option value="반출완료">반출완료</option>
+      </select>
     </div>
     <div class="field" style="margin-bottom:12px;">
       <label for="equipment-edit-insurancestart">보험시작일</label>
@@ -4853,8 +4858,8 @@ function renderEquipmentZoneFilter(){
   area.innerHTML = html;
 }
 
-const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(95px,5%) minmax(100px,5%) minmax(100px,5%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
-const EQUIPMENT_ROW_MIN_WIDTH = '2095px';
+const EQUIPMENT_ROW_GRID = 'minmax(130px,9%) minmax(130px,7%) minmax(140px,8%) minmax(60px,4%) minmax(150px,9%) minmax(50px,3%) minmax(120px,6%) minmax(85px,5%) minmax(85px,5%) minmax(95px,5%) minmax(95px,5%) minmax(95px,5%) minmax(100px,5%) minmax(160px,7%) minmax(260px,10%) minmax(56px,4%) minmax(56px,4%)';
+const EQUIPMENT_ROW_MIN_WIDTH = '2155px';
 
 function renderEquipmentZoneSummary(){
   const area = document.getElementById('equipmentZoneSummaryArea');
@@ -5015,7 +5020,10 @@ function renderEquipmentList(){
     const exitDateHtml = eq.exitDate ? escapeHtml(eq.exitDate) : `<span class="sub">-</span>`;
     const plannedEntryHtml = eq.plannedEntryDate ? escapeHtml(eq.plannedEntryDate) : `<span class="sub">-</span>`;
     const plannedExitHtml = eq.plannedExitDate ? escapeHtml(eq.plannedExitDate) : `<span class="sub">-</span>`;
-    const siteStatusHtml = eq.siteStatus ? escapeHtml(eq.siteStatus) : `<span class="sub">-</span>`;
+    const SITE_STATUS_COLORS = { '사용중': '#2f9e44', '반출예정': '#f08c00', '반출완료': '#868e96' };
+    const siteStatusHtml = eq.siteStatus
+      ? `<span style="white-space:nowrap; display:inline-block; font-size:12px; font-weight:700; color:#fff; background:${SITE_STATUS_COLORS[eq.siteStatus] || 'var(--smoke)'}; padding:3px 10px; border-radius:6px;">${escapeHtml(eq.siteStatus)}</span>`
+      : `<span class="sub">-</span>`;
     const insuranceStartHtml = eq.insuranceStartDate ? escapeHtml(eq.insuranceStartDate) : `<span class="sub">-</span>`;
     const insuranceDaysLeft = getDaysUntil(eq.insuranceEndDate);
     let insuranceEndHtml = `<span class="sub">-</span>`;
