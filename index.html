@@ -5128,7 +5128,16 @@ function renderEquipmentList(){
         insuranceEndHtml = escapeHtml(eq.insuranceEndDate);
       }
     }
-    return `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box;">
+    const plannedExitDaysLeft = getDaysUntil(eq.plannedExitDate);
+    const insuranceUrgent = insuranceDaysLeft !== null && insuranceDaysLeft <= 7;
+    const exitUrgent = plannedExitDaysLeft !== null && plannedExitDaysLeft <= 7;
+    let rowHighlightStyle = '';
+    if(insuranceUrgent){
+      rowHighlightStyle = 'background:#fff5f5; border-left:4px solid #e5484d; padding-left:8px; border-radius:4px;';
+    }else if(exitUrgent){
+      rowHighlightStyle = 'background:#fff8ec; border-left:4px solid #f08c00; padding-left:8px; border-radius:4px;';
+    }
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box; ${rowHighlightStyle}">
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(eq.name)}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${regHtml}</div>
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${modelHtml}</div>
