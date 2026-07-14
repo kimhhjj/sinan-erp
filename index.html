@@ -4157,6 +4157,29 @@ async function loadAttendanceData(){
   if(teamRenamed){
     await saveEmployees();
   }
+  // 일회성 남양(N팀) 인원 정보 반영: 연명부에서 확인한 연락처, 직급(전원 기술인),
+  // 직공(철거공, 단 서용호/염기태는 TBM리더라 제외) 반영. 매번 실행해도 값이 같으면 무해하다.
+  const NAMYANG_PROFILE_UPDATE = {
+    '송성현': { phone: '010-3001-7422', position: '기술인', trade: '철거공' },
+    '김창식': { phone: '010-4663-5502', position: '기술인', trade: '철거공' },
+    '염기태': { phone: '010-2357-4008', position: '기술인' },
+    '구지훈': { phone: '010-4532-3922', position: '기술인', trade: '철거공' },
+    '김창수': { phone: '010-6684-1197', position: '기술인', trade: '철거공' },
+    '김용구': { phone: '010-5209-0693', position: '기술인', trade: '철거공' },
+    '서용호': { phone: '010-2354-5621', position: '기술인' }
+  };
+  let namyangUpdated = false;
+  attEmployees.forEach(emp => {
+    const upd = NAMYANG_PROFILE_UPDATE[emp.name];
+    if(upd){
+      if(upd.phone !== undefined && emp.phone !== upd.phone){ emp.phone = upd.phone; namyangUpdated = true; }
+      if(upd.position !== undefined && emp.position !== upd.position){ emp.position = upd.position; namyangUpdated = true; }
+      if(upd.trade !== undefined && emp.trade !== upd.trade){ emp.trade = upd.trade; namyangUpdated = true; }
+    }
+  });
+  if(namyangUpdated){
+    await saveEmployees();
+  }
   renderAttDateDisplay();
   renderAttTable();
   renderAttReviewPanel();
