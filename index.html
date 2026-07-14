@@ -1201,6 +1201,10 @@
         </button>
         <div class="otp-bar"><div class="otp-bar-fill" id="otpBarFill"></div></div>
       </div>
+      <div id="scheduleAlertCard" style="display:none; margin:12px 0; padding:10px 12px; background:#fff8ec; border:1.5px solid #f08c00; border-radius:10px;">
+        <p style="margin:0 0 6px; font-size:12.5px; font-weight:700; color:#f08c00;">🚚 반입·반출예정 장비</p>
+        <div id="scheduleAlertList"></div>
+      </div>
       <div id="insuranceAlertCard" style="display:none; margin:12px 0; padding:10px 12px; background:#fff5f5; border:1.5px solid #e5484d; border-radius:10px;">
         <p style="margin:0 0 6px; font-size:12.5px; font-weight:700; color:#e5484d;">🛡️ 보험 만료 임박</p>
         <div id="insuranceAlertList"></div>
@@ -4284,11 +4288,9 @@ const PERSONNEL_TEAM_PALETTE = [
   { bg: 'rgba(56,103,214,0.12)', fg: '#3867d6', bd: 'rgba(56,103,214,0.35)' }
 ];
 function getTeamColor(teamName){
-  let hash = 0;
-  for(let i = 0; i < teamName.length; i++){
-    hash = (hash * 31 + teamName.charCodeAt(i)) >>> 0;
-  }
-  return PERSONNEL_TEAM_PALETTE[hash % PERSONNEL_TEAM_PALETTE.length];
+  let idx = attTeams.indexOf(teamName);
+  if(idx === -1) idx = 0;
+  return PERSONNEL_TEAM_PALETTE[idx % PERSONNEL_TEAM_PALETTE.length];
 }
 
 function renderPersonnelTeamFilter(){
@@ -4337,11 +4339,11 @@ function renderPersonnelList(){
     const positionDisplayHtml = `<span class="sub">${emp.position ? escapeHtml(emp.position) : '직급 미지정'}</span>`;
     return `<div class="att-emp-row">
       <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
-      ${zoneBadgeHtml}
-      ${teamBadgeHtml}
       ${phoneDisplayHtml}
       ${tradeDisplayHtml}
       ${positionDisplayHtml}
+      ${zoneBadgeHtml}
+      ${teamBadgeHtml}
       <span class="sub">${count}건 기록</span>
       <button type="button" class="btn small" data-action="personnel-zone-edit" data-name="${escapeHtml(emp.name)}">구역수정</button>
       <button type="button" class="btn small" data-action="personnel-team-move" data-name="${escapeHtml(emp.name)}">팀이동</button>
@@ -4934,13 +4936,25 @@ function getDaysUntil(dateStr){
   return Math.round((d - today) / 86400000);
 }
 
+function dDayLabel(daysLeft){
+  return daysLeft < 0 ? '만료' : (daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`);
+}
+
 function renderEquipmentAlerts(){
   const navBadge = document.getElementById('equipmentAlertNavBadge');
   const panel = document.getElementById('equipmentAlertPanel');
+  const scheduleCard = document.getElementById('scheduleAlertCard');
+  const scheduleListArea = document.getElementById('scheduleAlertList');
   const insuranceCard = document.getElementById('insuranceAlertCard');
   const insuranceListArea = document.getElementById('insuranceAlertList');
-  const entryList = equipmentList.filter(eq => eq.plannedEntryDate).sort((a,b) => a.plannedEntryDate.localeCompare(b.plannedEntryDate));
-  const exitList = equipmentList.filter(eq => eq.plannedExitDate).sort((a,b) => a.plannedExitDate.localeCompare(b.plannedExitDate));
+  const entryList = equipmentList
+    .map(eq => ({ eq, daysLeft: getDaysUntil(eq.plannedEntryDate) }))
+    .filter(x => x.daysLeft !== null && x.daysLeft <= 7)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+  const exitList = equipmentList
+    .map(eq => ({ eq, daysLeft: getDaysUntil(eq.plannedExitDate) }))
+    .filter(x => x.daysLeft !== null && x.daysLeft <= 7)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
   const insuranceList = equipmentList
     .map(eq => ({ eq, daysLeft: getDaysUntil(eq.insuranceEndDate) }))
     .filter(x => x.daysLeft !== null && x.daysLeft <= 7)
@@ -4954,13 +4968,30 @@ function renderEquipmentAlerts(){
       navBadge.style.display = 'none';
     }
   }
+  const scheduleAll = [
+    ...entryList.map(x => ({ eq: x.eq, daysLeft: x.daysLeft, tag: '반입예정' })),
+    ...exitList.map(x => ({ eq: x.eq, daysLeft: x.daysLeft, tag: '반출예정' }))
+  ].sort((a, b) => a.daysLeft - b.daysLeft);
+  if(scheduleCard && scheduleListArea){
+    if(scheduleAll.length > 0){
+      scheduleCard.style.display = '';
+      scheduleListArea.innerHTML = scheduleAll.map(({eq, daysLeft, tag}) => `
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:5px 0; border-top:1px solid #ffe3ba;">
+          <span style="white-space:nowrap; font-size:10.5px; font-weight:700; color:#fff; background:#f08c00; padding:2px 7px; border-radius:5px;">${dDayLabel(daysLeft)} ${tag}</span>
+          <span style="font-size:12.5px; font-weight:700; color:var(--charcoal);">${escapeHtml(eq.name)}</span>
+          <span class="sub" style="font-size:11.5px;">${eq.regNumber ? escapeHtml(eq.regNumber) : '등록번호 미입력'} / ${eq.operator ? escapeHtml(eq.operator) : '기사 미입력'}</span>
+        </div>`).join('');
+    }else{
+      scheduleCard.style.display = 'none';
+      scheduleListArea.innerHTML = '';
+    }
+  }
   if(insuranceCard && insuranceListArea){
     if(insuranceList.length > 0){
       insuranceCard.style.display = '';
       insuranceListArea.innerHTML = insuranceList.map(({eq, daysLeft}) => {
-        const dLabel = daysLeft < 0 ? '만료' : (daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`);
         return `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:5px 0; border-top:1px solid #fbdada;">
-          <span style="white-space:nowrap; font-size:10.5px; font-weight:700; color:#fff; background:#e5484d; padding:2px 7px; border-radius:5px;">${dLabel}</span>
+          <span style="white-space:nowrap; font-size:10.5px; font-weight:700; color:#fff; background:#e5484d; padding:2px 7px; border-radius:5px;">${dDayLabel(daysLeft)}</span>
           <span style="font-size:12.5px; font-weight:700; color:var(--charcoal);">${escapeHtml(eq.name)}</span>
           <span class="sub" style="font-size:11.5px;">${eq.regNumber ? escapeHtml(eq.regNumber) : '등록번호 미입력'} / ${eq.operator ? escapeHtml(eq.operator) : '기사 미입력'}</span>
         </div>`;
@@ -4985,13 +5016,13 @@ function renderEquipmentAlerts(){
       <span class="sub">${eq.operator ? escapeHtml(eq.operator) : '기사 미입력'}</span>
     </div>`;
   const entryHtml = entryList.length > 0
-    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:0 0 8px;">🚚 반입예정 장비 (${entryList.length})</p>${entryList.map(eq => rowHtml(eq, '반입예정', eq.plannedEntryDate, '#2f9e44')).join('')}`
+    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:0 0 8px;">🚚 반입예정 장비 (${entryList.length})</p>${entryList.map(({eq, daysLeft}) => rowHtml(eq, dDayLabel(daysLeft) + ' 반입예정', eq.plannedEntryDate, '#f08c00')).join('')}`
     : '';
   const exitHtml = exitList.length > 0
-    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${entryList.length > 0 ? '16px' : '0'} 0 8px;">📤 반출예정 장비 (${exitList.length})</p>${exitList.map(eq => rowHtml(eq, '반출예정', eq.plannedExitDate, '#e5484d')).join('')}`
+    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${entryList.length > 0 ? '16px' : '0'} 0 8px;">📤 반출예정 장비 (${exitList.length})</p>${exitList.map(({eq, daysLeft}) => rowHtml(eq, dDayLabel(daysLeft) + ' 반출예정', eq.plannedExitDate, '#f08c00')).join('')}`
     : '';
   const insuranceHtml = insuranceList.length > 0
-    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${(entryList.length > 0 || exitList.length > 0) ? '16px' : '0'} 0 8px;">🛡️ 보험 만료 임박 장비 (${insuranceList.length})</p>${insuranceList.map(({eq, daysLeft}) => rowHtml(eq, daysLeft < 0 ? '만료' : (daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`), eq.insuranceEndDate, '#e5484d')).join('')}`
+    ? `<p style="font-size:12px; font-weight:700; color:var(--smoke); margin:${(entryList.length > 0 || exitList.length > 0) ? '16px' : '0'} 0 8px;">🛡️ 보험 만료 임박 장비 (${insuranceList.length})</p>${insuranceList.map(({eq, daysLeft}) => rowHtml(eq, dDayLabel(daysLeft), eq.insuranceEndDate, '#e5484d')).join('')}`
     : '';
   panel.style.display = '';
   panel.innerHTML = `<div class="panel" style="border:2px solid #e5484d;"><p class="block-title" style="margin-bottom:12px;">⚠️ 장비 알림 (${total})</p>${entryHtml}${exitHtml}${insuranceHtml}</div>`;
