@@ -4307,6 +4307,9 @@ function renderPersonnelTeamFilter(){
   area.innerHTML = html;
 }
 
+const PERSONNEL_ROW_GRID = 'minmax(90px,11%) minmax(105px,10%) minmax(150px,13%) minmax(70px,6%) minmax(56px,5%) minmax(140px,11%) minmax(72px,6%) minmax(76px,7%) minmax(64px,6%) minmax(76px,7%) minmax(76px,7%) minmax(56px,6%)';
+const PERSONNEL_ROW_MIN_WIDTH = '1420px';
+
 function renderPersonnelList(){
   const area = document.getElementById('personnelListArea');
   if(!area) return;
@@ -4324,7 +4327,21 @@ function renderPersonnelList(){
     area.innerHTML = '<div class="empty">표시할 인원이 없습니다.</div>';
     return;
   }
-  area.innerHTML = sorted.map(emp => {
+  const headerHtml = `<div class="att-emp-row" style="display:grid; grid-template-columns:${PERSONNEL_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box; font-size:11px; color:var(--smoke); text-transform:uppercase; font-weight:700; letter-spacing:0.02em; border-bottom:2px solid var(--ash); padding-bottom:8px;">
+    <div>이름</div>
+    <div>번호</div>
+    <div>직공</div>
+    <div>직급</div>
+    <div>구역</div>
+    <div>팀</div>
+    <div>기록</div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>`;
+  const rowsHtml = sorted.map(emp => {
     const count = attRecords.filter(r => r.name === emp.name).length;
     const isActive = emp.active !== 'false';
     const zoneBadgeHtml = (emp.zone === 'A4' || emp.zone === 'A5')
@@ -4332,26 +4349,29 @@ function renderPersonnelList(){
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">미배정</span>`;
     const teamColor = emp.team ? getTeamColor(emp.team) : null;
     const teamBadgeHtml = emp.team
-      ? `<span class="att-zone-badge" style="background:${teamColor.bg}; color:${teamColor.fg}; border:1px solid ${teamColor.bd};">${escapeHtml(emp.team)}</span>`
+      ? `<span class="att-zone-badge" style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; background:${teamColor.bg}; color:${teamColor.fg}; border:1px solid ${teamColor.bd};">${escapeHtml(emp.team)}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">팀미배정</span>`;
-    const phoneDisplayHtml = `<span class="sub">${emp.phone ? escapeHtml(emp.phone) : '번호 미입력'}</span>`;
-    const tradeDisplayHtml = `<span class="sub">${emp.trade ? escapeHtml(emp.trade) : '직공 미지정'}</span>`;
-    const positionDisplayHtml = `<span class="sub">${emp.position ? escapeHtml(emp.position) : '직급 미지정'}</span>`;
-    return `<div class="att-emp-row">
-      <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+    const phoneDisplayHtml = `<span class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block;">${emp.phone ? escapeHtml(emp.phone) : '번호 미입력'}</span>`;
+    const tradeDisplayHtml = `<span class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block;">${emp.trade ? escapeHtml(emp.trade) : '직공 미지정'}</span>`;
+    const positionDisplayHtml = `<span class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block;">${emp.position ? escapeHtml(emp.position) : '직급 미지정'}</span>`;
+    return `<div class="att-emp-row" style="display:grid; grid-template-columns:${PERSONNEL_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box;">
+      <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+        <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
+      </div>
       ${phoneDisplayHtml}
       ${tradeDisplayHtml}
       ${positionDisplayHtml}
-      ${zoneBadgeHtml}
-      ${teamBadgeHtml}
+      <div style="overflow:hidden;">${zoneBadgeHtml}</div>
+      <div style="overflow:hidden;">${teamBadgeHtml}</div>
       <span class="sub">${count}건 기록</span>
-      <button type="button" class="btn small" data-action="personnel-zone-edit" data-name="${escapeHtml(emp.name)}">구역수정</button>
-      <button type="button" class="btn small" data-action="personnel-team-move" data-name="${escapeHtml(emp.name)}">팀이동</button>
-      <button type="button" class="btn small" data-action="personnel-toggle-active" data-name="${escapeHtml(emp.name)}">${isActive ? '비활성화' : '활성화'}</button>
-      <button type="button" class="btn small" data-action="personnel-rename" data-name="${escapeHtml(emp.name)}">이름수정</button>
-      <button type="button" class="btn small danger" data-action="personnel-delete" data-name="${escapeHtml(emp.name)}">삭제</button>
+      <button type="button" class="btn small" data-action="personnel-zone-edit" data-name="${escapeHtml(emp.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">구역수정</button>
+      <button type="button" class="btn small" data-action="personnel-team-move" data-name="${escapeHtml(emp.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">팀이동</button>
+      <button type="button" class="btn small" data-action="personnel-toggle-active" data-name="${escapeHtml(emp.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">${isActive ? '비활성화' : '활성화'}</button>
+      <button type="button" class="btn small" data-action="personnel-rename" data-name="${escapeHtml(emp.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">이름수정</button>
+      <button type="button" class="btn small danger" data-action="personnel-delete" data-name="${escapeHtml(emp.name)}" style="width:100%; justify-content:center; padding-left:4px; padding-right:4px;">삭제</button>
     </div>`;
   }).join('');
+  area.innerHTML = `<div style="overflow-x:auto;"><div style="min-width:${PERSONNEL_ROW_MIN_WIDTH};">${headerHtml}${rowsHtml}</div></div>`;
 }
 
 document.getElementById('personnelSearchInput').addEventListener('input', (e) => {
