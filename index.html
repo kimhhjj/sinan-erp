@@ -5316,6 +5316,8 @@ function renderEquipmentList(){
       rowHighlightStyle = 'background:#fff5f5; border-left:4px solid #e5484d; padding-left:8px; border-radius:4px;';
     }else if(exitUrgent){
       rowHighlightStyle = 'background:#fff8ec; border-left:4px solid #f08c00; padding-left:8px; border-radius:4px;';
+    }else if(eq.siteStatus === '반출완료'){
+      rowHighlightStyle = 'background:#f1f3f5; border-left:4px solid #868e96; padding-left:8px; border-radius:4px; opacity:0.75;';
     }
     return `<div class="att-emp-row" style="display:grid; grid-template-columns:${EQUIPMENT_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box; ${rowHighlightStyle}">
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:700; font-family:var(--font-display); color:var(--charcoal);">${escapeHtml(eq.name)}</div>
