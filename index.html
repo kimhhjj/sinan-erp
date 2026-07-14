@@ -4293,6 +4293,27 @@ function getTeamColor(teamName){
   return PERSONNEL_TEAM_PALETTE[idx % PERSONNEL_TEAM_PALETTE.length];
 }
 
+const PERSONNEL_TRADE_OPTIONS = ['화재감시자', '유도원', '신호수', '관리자', '철거공', 'TL운전원', '화물차운전원', '지게차운전원', '지게차(전동)운전원', '거미크레인운전원', '굴착기운전원', '크롤러크레인운전원'];
+const PERSONNEL_TRADE_PALETTE = [
+  { bg: '#7b68ee', fg: '#fff' },
+  { bg: '#2f9e44', fg: '#fff' },
+  { bg: '#e67e22', fg: '#fff' },
+  { bg: '#1da1f2', fg: '#fff' },
+  { bg: '#d6336c', fg: '#fff' },
+  { bg: '#0b998f', fg: '#fff' },
+  { bg: '#ae3ec9', fg: '#fff' },
+  { bg: '#b8860b', fg: '#fff' },
+  { bg: '#e03131', fg: '#fff' },
+  { bg: '#3867d6', fg: '#fff' },
+  { bg: '#087f5b', fg: '#fff' },
+  { bg: '#9c36b5', fg: '#fff' }
+];
+function getTradeColor(tradeName){
+  let idx = PERSONNEL_TRADE_OPTIONS.indexOf(tradeName);
+  if(idx === -1) idx = PERSONNEL_TRADE_PALETTE.length - 1;
+  return PERSONNEL_TRADE_PALETTE[idx % PERSONNEL_TRADE_PALETTE.length];
+}
+
 function renderPersonnelTeamFilter(){
   const area = document.getElementById('personnelTeamFilterArea');
   if(!area) return;
@@ -4352,14 +4373,17 @@ function renderPersonnelList(){
       ? `<span class="att-zone-badge" style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; background:${teamColor.bg}; color:${teamColor.fg}; border:1px solid ${teamColor.bd};">${escapeHtml(emp.team)}</span>`
       : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">팀미배정</span>`;
     const phoneDisplayHtml = `<span class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block;">${emp.phone ? escapeHtml(emp.phone) : '번호 미입력'}</span>`;
-    const tradeDisplayHtml = `<span class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block;">${emp.trade ? escapeHtml(emp.trade) : '직공 미지정'}</span>`;
+    const tradeColor = emp.trade ? getTradeColor(emp.trade) : null;
+    const tradeDisplayHtml = emp.trade
+      ? `<span class="att-zone-badge" style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; background:${tradeColor.bg}; color:${tradeColor.fg}; border:1px solid ${tradeColor.bg};">${escapeHtml(emp.trade)}</span>`
+      : `<span class="att-zone-badge" style="background:var(--ash); color:var(--smoke); border:1px solid var(--ash);">직공 미지정</span>`;
     const positionDisplayHtml = `<span class="sub" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block;">${emp.position ? escapeHtml(emp.position) : '직급 미지정'}</span>`;
     return `<div class="att-emp-row" style="display:grid; grid-template-columns:${PERSONNEL_ROW_GRID}; gap:10px; align-items:center; width:100%; box-sizing:border-box;">
       <div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
         <button type="button" class="att-row-name" data-action="personnel-profile" data-name="${escapeHtml(emp.name)}" style="background:none; border:none; margin:0; padding:0; line-height:inherit; cursor:pointer; text-align:left;">${escapeHtml(emp.name)}</button>${isActive ? '' : ' <span class="sub">(비활성)</span>'}
       </div>
       ${phoneDisplayHtml}
-      ${tradeDisplayHtml}
+      <div style="overflow:hidden;">${tradeDisplayHtml}</div>
       ${positionDisplayHtml}
       <div style="overflow:hidden;">${zoneBadgeHtml}</div>
       <div style="overflow:hidden;">${teamBadgeHtml}</div>
@@ -4843,6 +4867,24 @@ document.getElementById('saveMulsanproProfile').addEventListener('click', async 
 const EQUIPMENT_TYPE_DEFAULTS = ['지게차', '전동지게차', '굴착기', '거미크레인', '크롤러크레인', '화물차', '테이블리프트(T/L)'];
 let equipmentList = []; // [{id, name, regNumber, model, operator, phone, type}]
 let equipmentTypes = [...EQUIPMENT_TYPE_DEFAULTS];
+
+const EQUIPMENT_TYPE_PALETTE = [
+  { bg: '#7b68ee', fg: '#fff' },
+  { bg: '#2f9e44', fg: '#fff' },
+  { bg: '#e67e22', fg: '#fff' },
+  { bg: '#1da1f2', fg: '#fff' },
+  { bg: '#d6336c', fg: '#fff' },
+  { bg: '#0b998f', fg: '#fff' },
+  { bg: '#ae3ec9', fg: '#fff' },
+  { bg: '#b8860b', fg: '#fff' },
+  { bg: '#e03131', fg: '#fff' },
+  { bg: '#3867d6', fg: '#fff' }
+];
+function getEquipmentTypeColor(typeName){
+  let idx = equipmentTypes.indexOf(typeName);
+  if(idx === -1) idx = 0;
+  return EQUIPMENT_TYPE_PALETTE[idx % EQUIPMENT_TYPE_PALETTE.length];
+}
 let equipmentTypeFilter = ''; // '' = 전체
 let equipmentZoneFilter = ''; // '' = 전체, 'A4', 'A5'
 let equipmentSearchQuery = '';
@@ -4942,7 +4984,7 @@ function renderEquipmentZoneSummary(){
     area.innerHTML = '';
     return;
   }
-  const badgesHtml = types.map(t => `<span class="att-zone-badge" style="white-space:nowrap; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(t)} ${counts[t]}대</span>`).join(' ');
+  const badgesHtml = types.map(t => { const c = getEquipmentTypeColor(t); return `<span class="att-zone-badge" style="white-space:nowrap; background:${c.bg}; color:${c.fg}; border:1px solid ${c.bg}; font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(t)} ${counts[t]}대</span>`; }).join(' ');
   area.innerHTML = `<div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0; padding-top:14px; border-top:1px solid var(--ash);"><span class="sub" style="font-weight:700;">${escapeHtml(equipmentZoneFilter)} 라인 구성:</span>${badgesHtml}</div>`;
 }
 
@@ -5097,8 +5139,9 @@ function renderEquipmentList(){
     <div></div>
   </div>`;
   const rowsHtml = sorted.map(eq => {
+    const typeColor = eq.type ? getEquipmentTypeColor(eq.type) : null;
     const typeBadgeHtml = eq.type
-      ? `<span class="att-zone-badge" style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; background:var(--violet); color:#fff; border:1px solid var(--violet); font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(eq.type)}</span>`
+      ? `<span class="att-zone-badge" style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; background:${typeColor.bg}; color:${typeColor.fg}; border:1px solid ${typeColor.bg}; font-size:12px; padding:3px 10px; border-radius:6px;">${escapeHtml(eq.type)}</span>`
       : `<span class="att-zone-badge" style="white-space:nowrap; background:var(--smoke); color:#fff; border:1px solid var(--smoke); font-size:12px; padding:3px 10px; border-radius:6px;">종류미지정</span>`;
     const phoneHtml = eq.phone
       ? `<span style="white-space:nowrap; display:inline-block; text-align:center; font-size:12.5px; font-weight:700; color:var(--charcoal); background:#fff; border:1px solid var(--ash); padding:3px 10px; border-radius:6px;">${escapeHtml(eq.phone.replace(/-/g, ' - '))}</span>`
