@@ -4194,6 +4194,29 @@ async function loadAttendanceData(){
   if(asanPhoneUpdated){
     await saveEmployees();
   }
+  // 일회성 팀 배정: 연명부 기준 업체명이 "신안"인 인원 전원 + 기존 "유도원팀" 소속 전원을
+  // "신안(직영)팀"으로 옮기고, "유도원팀"은 삭제한다. 매번 실행해도 안전하다(이미 옮겨진
+  // 뒤에는 조건에 걸리는 대상이 없음).
+  const SINAN_DIRECT_NAMES = ['안광룡','장지현','정재빈','강려경','김현욱','이승은','최하림','김희선','이난원','김화선','김효진','장향화','김태희','장현미','박성순','한희선','김옥순','김영아','김영미(70)','박주화','성중일','조미경','김용숙','정혜영','김지숙','김경희','강순옥','최진영','박성남','이정자','한희숙','전은정','류승철','오금희','이정호','류현경','박은호','박경원','이영미','이한솔','손경자','양현정','설지영','박순주','김주빈','오지영','김재은','이철주','정재영','조수현'];
+  let sinanTeamUpdated = false;
+  attEmployees.forEach(emp => {
+    if(SINAN_DIRECT_NAMES.includes(emp.name) && emp.team !== '신안(직영)팀'){
+      emp.team = '신안(직영)팀';
+      sinanTeamUpdated = true;
+    }
+    if(emp.team === '유도원팀'){
+      emp.team = '신안(직영)팀';
+      sinanTeamUpdated = true;
+    }
+  });
+  if(attTeams.includes('유도원팀')){
+    attTeams = attTeams.filter(t => t !== '유도원팀');
+    sinanTeamUpdated = true;
+  }
+  refreshTeamsFromEmployees();
+  if(sinanTeamUpdated){
+    await saveEmployees();
+  }
   renderAttDateDisplay();
   renderAttTable();
   renderAttReviewPanel();
