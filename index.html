@@ -4194,16 +4194,28 @@ async function loadAttendanceData(){
   if(asanPhoneUpdated){
     await saveEmployees();
   }
-  // 일회성 팀 배정: 연명부 기준 업체명이 "신안"인 인원 전원 + 기존 "유도원팀" 소속 전원을
-  // "신안(직영)팀"으로 옮기고, "유도원팀"은 삭제한다. 매번 실행해도 안전하다(이미 옮겨진
-  // 뒤에는 조건에 걸리는 대상이 없음).
-  const SINAN_DIRECT_NAMES = ['안광룡','장지현','정재빈','강려경','김현욱','이승은','최하림','김희선','이난원','김화선','김효진','장향화','김태희','장현미','박성순','한희선','김옥순','김영아','김영미(70)','박주화','성중일','조미경','김용숙','정혜영','김지숙','김경희','강순옥','최진영','박성남','이정자','한희숙','전은정','류승철','오금희','이정호','류현경','박은호','박경원','이영미','이한솔','손경자','양현정','설지영','박순주','김주빈','오지영','김재은','이철주','정재영','조수현'];
+  // 일회성 팀 배정: 연명부 기준 업체명이 "신안"인 인원 전원(이름+연락처, 명단에 없으면
+  // 새로 등록) + 기존 "유도원팀" 소속 전원을 "신안(직영)팀"으로 옮기고, "유도원팀"은
+  // 삭제한다. 매번 실행해도 안전하다(이미 반영된 뒤에는 조건에 걸리는 대상이 없음).
+  const SINAN_DIRECT_LIST = [{name:'안광룡',phone:'010-2079-4332'},{name:'장지현',phone:'010-8888-4451'},{name:'정재빈',phone:'010-9772-1057'},{name:'강려경',phone:'010-3277-4416'},{name:'김현욱',phone:'010-4411-0070'},{name:'이승은',phone:'010-2234-1606'},{name:'최하림',phone:'010-4552-8597'},{name:'김희선',phone:'010-4553-7471'},{name:'이난원',phone:'010-2392-0734'},{name:'김화선',phone:'010-5553-5858'},{name:'김효진',phone:'010-3919-4416'},{name:'장향화',phone:'010-6422-8217'},{name:'김태희',phone:'010-3260-3257'},{name:'장현미',phone:'010-8300-3313'},{name:'박성순',phone:'010-2996-1453'},{name:'한희선',phone:'010-3699-9983'},{name:'김옥순',phone:'010-2019-1255'},{name:'김영아',phone:'010-9822-1304'},{name:'김영미',phone:'010-4677-0709'},{name:'박주화',phone:'010-3999-3613'},{name:'성중일',phone:'010-3330-4815'},{name:'조미경',phone:'010-7331-0363'},{name:'김용숙',phone:'010-8233-5414'},{name:'정혜영',phone:'010-9644-2016'},{name:'김지숙',phone:'010-9947-0053'},{name:'김경희',phone:'010-3002-5491'},{name:'강순옥',phone:'010-5917-7678'},{name:'최진영',phone:'010-8916-5495'},{name:'박성남',phone:'010-5516-5879'},{name:'이정자',phone:'010-3461-6205'},{name:'한희숙',phone:'010-4642-8100'},{name:'전은정',phone:'010-3939-4846'},{name:'류승철',phone:'010-9585-3854'},{name:'오금희',phone:'010-5042-0270'},{name:'이정호',phone:'010-4911-5765'},{name:'류현경',phone:'010-8274-0217'},{name:'박은호',phone:'010-4481-1357'},{name:'박경원',phone:'010-7410-0830'},{name:'이영미',phone:'010-8020-1971'},{name:'이한솔',phone:'010-4177-6199'},{name:'손경자',phone:'010-8544-4613'},{name:'양현정',phone:'010-8443-7899'},{name:'설지영',phone:'010-5557-3577'},{name:'박순주',phone:'010-9410-2990'},{name:'김주빈',phone:'010-3936-3362'},{name:'오지영',phone:'010-9106-1073'},{name:'김재은',phone:'010-6383-7471'},{name:'이철주',phone:'010-4029-3827'},{name:'정재영',phone:'010-6887-1008'},{name:'조수현',phone:'010-8113-9715'}];
   let sinanTeamUpdated = false;
-  attEmployees.forEach(emp => {
-    if(SINAN_DIRECT_NAMES.includes(emp.name) && emp.team !== '신안(직영)팀'){
+  SINAN_DIRECT_LIST.forEach(({name, phone}) => {
+    let emp = attEmployees.find(e => e.name === name);
+    if(!emp){
+      emp = { name: name, firstSeenDate: todayDateOnly(), active: 'true' };
+      attEmployees.push(emp);
+      sinanTeamUpdated = true;
+    }
+    if(emp.team !== '신안(직영)팀'){
       emp.team = '신안(직영)팀';
       sinanTeamUpdated = true;
     }
+    if(phone && emp.phone !== phone){
+      emp.phone = phone;
+      sinanTeamUpdated = true;
+    }
+  });
+  attEmployees.forEach(emp => {
     if(emp.team === '유도원팀'){
       emp.team = '신안(직영)팀';
       sinanTeamUpdated = true;
