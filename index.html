@@ -2041,6 +2041,7 @@
         <option value="팀리더">팀리더</option>
         <option value="팀장">팀장</option>
         <option value="공구장">공구장</option>
+        <option value="현장소장">현장소장</option>
       </select>
     </div>
     <div class="field" style="margin-bottom:12px;">
@@ -4229,6 +4230,32 @@ async function loadAttendanceData(){
   if(sinanTeamUpdated){
     await saveEmployees();
   }
+  // 일회성 직공/구역 배정: 연명부 직종(유도원/관리자/철거공 - 기존 사이트 직공 목록과 일치)과
+  // 공사명(A4-2L 포함 -> A4, A5라인 포함 -> A5) 기준. "현장소장"처럼 사이트 직공 목록에
+  // 없는 직종은 건드리지 않는다.
+  const SINAN_TRADE_ZONE_LIST = [{name:'안광룡',trade:'',zone:'A4'},{name:'장지현',trade:'유도원',zone:'A4'},{name:'정재빈',trade:'관리자',zone:'A4'},{name:'강려경',trade:'관리자',zone:'A4'},{name:'김현욱',trade:'관리자',zone:'A4'},{name:'이승은',trade:'관리자',zone:'A4'},{name:'최하림',trade:'관리자',zone:'A4'},{name:'김희선',trade:'유도원',zone:'A4'},{name:'이난원',trade:'유도원',zone:'A4'},{name:'김화선',trade:'유도원',zone:'A4'},{name:'김효진',trade:'관리자',zone:'A4'},{name:'장향화',trade:'유도원',zone:'A4'},{name:'김태희',trade:'관리자',zone:'A4'},{name:'장현미',trade:'유도원',zone:'A4'},{name:'박성순',trade:'관리자',zone:'A4'},{name:'한희선',trade:'유도원',zone:'A4'},{name:'김옥순',trade:'유도원',zone:'A5'},{name:'김영아',trade:'유도원',zone:'A5'},{name:'김영미',trade:'유도원',zone:'A5'},{name:'박주화',trade:'관리자',zone:'A5'},{name:'성중일',trade:'관리자',zone:'A5'},{name:'조미경',trade:'유도원',zone:'A5'},{name:'김용숙',trade:'유도원',zone:'A5'},{name:'정혜영',trade:'유도원',zone:'A5'},{name:'김지숙',trade:'유도원',zone:'A5'},{name:'김경희',trade:'유도원',zone:'A5'},{name:'강순옥',trade:'유도원',zone:'A5'},{name:'최진영',trade:'유도원',zone:'A5'},{name:'박성남',trade:'유도원',zone:'A5'},{name:'이정자',trade:'유도원',zone:'A5'},{name:'한희숙',trade:'유도원',zone:'A5'},{name:'전은정',trade:'유도원',zone:'A4'},{name:'류승철',trade:'관리자',zone:'A5'},{name:'오금희',trade:'유도원',zone:'A5'},{name:'이정호',trade:'철거공',zone:'A4'},{name:'류현경',trade:'관리자',zone:'A5'},{name:'박은호',trade:'관리자',zone:'A5'},{name:'박경원',trade:'유도원',zone:'A5'},{name:'이영미',trade:'유도원',zone:'A5'},{name:'이한솔',trade:'관리자',zone:'A5'},{name:'손경자',trade:'유도원',zone:'A4'},{name:'양현정',trade:'유도원',zone:'A4'},{name:'설지영',trade:'유도원',zone:'A4'},{name:'박순주',trade:'유도원',zone:'A4'},{name:'김주빈',trade:'관리자',zone:'A4'},{name:'오지영',trade:'관리자',zone:'A4'},{name:'김재은',trade:'철거공',zone:'A5'},{name:'이철주',trade:'철거공',zone:'A5'},{name:'정재영',trade:'철거공',zone:'A5'},{name:'조수현',trade:'철거공',zone:'A5'}];
+  let sinanTradeZoneUpdated = false;
+  SINAN_TRADE_ZONE_LIST.forEach(({name, trade, zone}) => {
+    const emp = attEmployees.find(e => e.name === name);
+    if(!emp) return;
+    if(trade && emp.trade !== trade){
+      emp.trade = trade;
+      sinanTradeZoneUpdated = true;
+    }
+    if(zone && emp.zone !== zone){
+      emp.zone = zone;
+      sinanTradeZoneUpdated = true;
+    }
+  });
+  if(sinanTradeZoneUpdated){
+    await saveEmployees();
+  }
+  // 일회성: 안광룡 -> 현장소장
+  const siteBossEmp = attEmployees.find(e => e.name === '안광룡');
+  if(siteBossEmp && siteBossEmp.trade !== '현장소장'){
+    siteBossEmp.trade = '현장소장';
+    await saveEmployees();
+  }
   renderAttDateDisplay();
   renderAttTable();
   renderAttReviewPanel();
@@ -4389,7 +4416,7 @@ function getTeamColor(teamName){
   return PERSONNEL_TEAM_PALETTE[idx % PERSONNEL_TEAM_PALETTE.length];
 }
 
-const PERSONNEL_TRADE_OPTIONS = ['화재감시자', '유도원', '신호수', '관리자', '철거공', 'TL운전원', '화물차운전원', '지게차운전원', '지게차(전동)운전원', '거미크레인운전원', '굴착기운전원', '크롤러크레인운전원', '팀리더', '팀장', '공구장'];
+const PERSONNEL_TRADE_OPTIONS = ['화재감시자', '유도원', '신호수', '관리자', '철거공', 'TL운전원', '화물차운전원', '지게차운전원', '지게차(전동)운전원', '거미크레인운전원', '굴착기운전원', '크롤러크레인운전원', '팀리더', '팀장', '공구장', '현장소장'];
 const PERSONNEL_TRADE_PALETTE = [
   { bg: '#7b68ee', fg: '#fff' },
   { bg: '#2f9e44', fg: '#fff' },
@@ -4405,7 +4432,8 @@ const PERSONNEL_TRADE_PALETTE = [
   { bg: '#9c36b5', fg: '#fff' },
   { bg: '#495057', fg: '#fff' },
   { bg: '#f08c00', fg: '#fff' },
-  { bg: '#5c940d', fg: '#fff' }
+  { bg: '#5c940d', fg: '#fff' },
+  { bg: '#c92a2a', fg: '#fff' }
 ];
 function getTradeColor(tradeName){
   let idx = PERSONNEL_TRADE_OPTIONS.indexOf(tradeName);
