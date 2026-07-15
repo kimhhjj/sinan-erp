@@ -5229,7 +5229,7 @@ function renderEquipmentAlerts(){
     .sort((a, b) => a.daysLeft - b.daysLeft);
   const exitList = equipmentList
     .map(eq => ({ eq, daysLeft: getDaysUntil(eq.plannedExitDate) }))
-    .filter(x => x.daysLeft !== null && x.daysLeft <= 7)
+    .filter(x => x.daysLeft !== null && x.daysLeft <= 7 && x.eq.siteStatus !== '반출완료')
     .sort((a, b) => a.daysLeft - b.daysLeft);
   const insuranceList = equipmentList
     .map(eq => ({ eq, daysLeft: getDaysUntil(eq.insuranceEndDate) }))
